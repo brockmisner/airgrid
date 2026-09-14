@@ -124,7 +124,7 @@
 <script>
 let BUNDLED_CELLS = [];
 async function loadBundledCells(){
-  const urls = ["./data/miami-beach-cells.json","https://cdn.jsdelivr.net/gh/brockmisner/airgrid@main/data/miami-beach-cells.json"];
+  const urls = ["./data/miami-beach-cells.json","https://raw.githubusercontent.com/brockmisner/airgrid/93b4f08/data/miami-beach-cells.json","https://cdn.jsdelivr.net/gh/brockmisner/airgrid@93b4f08/data/miami-beach-cells.json"];
   for (const url of urls){
     try {
       const res = await fetch(url, {cache:"no-store"});
