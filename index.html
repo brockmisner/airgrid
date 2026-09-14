@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Airgrid — Wi-Fi, Bluetooth & Cell</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root{--bg:#090b0d;--panel:#101418;--line:#1d242c;--text:#e8edf2;--muted:#8b97a4;--subtle:#5d6b78;--wifi:#5b8cff;--bt:#2fd3c0;--cell:#f0b429}
+    *{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:"IBM Plex Sans",system-ui,sans-serif}
+    button,input,select{font:inherit}.app{height:100dvh;display:grid;grid-template-rows:auto auto 1fr}
+    header{display:flex;align-items:center;gap:16px;padding:10px 14px;border-bottom:1px solid var(--line);background:var(--panel)}
+    .brand{display:flex;align-items:baseline;gap:10px;min-width:140px}.brand h1{margin:0;font-size:15px;letter-spacing:.08em;text-transform:uppercase}
+    .brand span{color:var(--subtle);font-size:11px;font-family:"IBM Plex Mono",monospace}
+    .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;flex:1}
+    .field{display:flex;align-items:center;gap:6px;background:#0b0e11;border:1px solid var(--line);border-radius:8px;padding:4px 8px}
+    .field label{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--subtle)}
+    .field input,.field select{background:transparent;border:0;color:var(--text);outline:none;width:92px;font-family:"IBM Plex Mono",monospace;font-size:12px}
+    .btn{background:#1a222b;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:7px 12px;cursor:pointer;font-size:12px}
+    .btn.primary{background:#e8edf2;color:#090b0d;border-color:#e8edf2;font-weight:600}
+    .chip{font-size:11px;padding:6px 10px}.chip.wifi{color:var(--wifi)}.chip.bt{color:var(--bt)}.chip.cell{color:var(--cell)}.chip.off{opacity:.4}
+    .stats{padding:8px 14px;border-bottom:1px solid var(--line);font-size:12px;color:var(--muted);background:#0c1014}
+    .stage{display:grid;grid-template-columns:minmax(0,1fr) 360px;min-height:0}#map{min-height:0;background:#0a0d10}
+    aside{border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0;background:var(--panel)}
+    .aside-head{padding:10px 12px;border-bottom:1px solid var(--line)}
+    .aside-head input{width:100%;background:#0b0e11;border:1px solid var(--line);color:var(--text);border-radius:8px;padding:7px 10px;font-size:12px}
+    .list{overflow:auto;flex:1}.row{width:100%;text-align:left;background:transparent;border:0;border-bottom:1px solid var(--line);color:inherit;padding:10px 12px;cursor:pointer;display:grid;gap:4px}
+    .row:hover,.row.sel{background:#151b21}.row-top{display:flex;justify-content:space-between;gap:8px}
+    .ssid{font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .meta{font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--muted);display:flex;gap:8px;flex-wrap:wrap}
+    .tag{font-size:10px;letter-spacing:.06em;text-transform:uppercase}.tag.wifi{color:var(--wifi)}.tag.bluetooth{color:var(--bt)}.tag.cell{color:var(--cell)}
+    .modal{position:fixed;inset:0;background:rgba(0,0,0,.62);display:none;align-items:center;justify-content:center;z-index:5000;padding:20px}
+    .modal.open{display:flex}.card{width:min(420px,100%);background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;display:grid;gap:12px}
+    .card h2{margin:0;font-size:16px}.card p{margin:0;color:var(--muted);font-size:13px;line-height:1.45}
+    .card label{font-size:11px;color:var(--subtle);text-transform:uppercase}
+    .card input{width:100%;background:#0b0e11;border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px 10px;font-family:"IBM Plex Mono",monospace;font-size:12px}
+    .actions{display:flex;justify-content:flex-end;gap:8px}.err{color:#ef6b6b;font-size:12px;padding:0 14px 8px}
+    @media(max-width:840px){.stage{grid-template-columns:1fr;grid-template-rows:52vh 1fr}aside{border-left:0;border-top:1px solid var(--line)}}
+  </style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand"><h1>Airgrid</h1><span>Wi-Fi · BT · Cell</span></div>
+    <div class="toolbar">
+      <div class="field"><label>Lat</label><input id="lat" value="28.0395" /></div>
+      <div class="field"><label>Lng</label><input id="lng" value="-81.9498" /></div>
+      <div class="field"><label>Radius</label><select id="radius"><option value="0.25">0.25 km</option><option value="0.5" selected>0.5 km</option><option value="1">1 km</option><option value="2">2 km</option><option value="5">5 km</option></select></div>
+      <div class="field"><label>Jump</label><select id="preset"><option value="28.0395,-81.9498">Lakeland</option><option value="27.9506,-82.4572">Tampa</option><option value="25.7617,-80.1918">Miami</option><option value="40.7128,-74.0060">New York</option><option value="34.0522,-118.2437">Los Angeles</option><option value="41.8781,-87.6298">Chicago</option></select></div>
+      <div class="layers" style="display:flex;gap:6px">
+        <button class="btn chip wifi" data-layer="wifi">Wi-Fi</button>
+        <button class="btn chip bt" data-layer="bluetooth">Bluetooth</button>
+        <button class="btn chip cell" data-layer="cell">Cell</button>
+      </div>
+      <button class="btn" id="geo">My location</button>
+      <button class="btn" id="keys">WiGLE key</button>
+      <button class="btn primary" id="scan">Scan</button>
+    </div>
+  </header>
+  <div class="stats" id="stats">Sample data loaded. Add a WiGLE key for live results.</div>
+  <div class="err" id="err" hidden></div>
+  <div class="stage"><div id="map"></div>
+    <aside>
+      <div class="aside-head"><input id="filter" placeholder="Filter name, MAC, type…" /></div>
+      <div class="list" id="list"></div>
+    </aside>
+  </div>
+</div>
+<div class="modal" id="modal"><div class="card">
+  <h2>WiGLE API credentials</h2>
+  <p>From <a href="https://wigle.net/account" target="_blank" rel="noreferrer" style="color:#8eb4ff">wigle.net/account</a>: API Name (starts with AID-) and the token after Show token. Do not paste the encoded-for-use field.</p>
+  <div><label for="apiName">API name</label><input id="apiName" autocomplete="off" placeholder="AID-xxxxxxxx-xxxxx" /></div>
+  <div><label for="apiToken">API token</label><input id="apiToken" type="password" autocomplete="off" /></div>
+  <p>A full Wi-Fi + Bluetooth + cell scan uses three daily queries.</p>
+  <div class="actions"><button class="btn" id="clearKeys">Remove</button><button class="btn primary" id="saveKeys">Save</button></div>
+</div></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const KEY="airgrid.creds.v2";
+const layersOn={wifi:true,bluetooth:true,cell:true};
+let networks=[],selected=null,markers=[],map,originMarker,scanCircle;
+const el=id=>document.getElementById(id);
+function loadCreds(){try{return JSON.parse(localStorage.getItem(KEY)||"{}")}catch{return{}}}
+function saveCreds(c){localStorage.setItem(KEY,JSON.stringify(c))}
+function colorFor(n){if(n.kind==="bluetooth")return"#2fd3c0";if(n.kind==="cell")return"#f0b429";const e=(n.encryption||"").toUpperCase();if(e.includes("WPA3"))return"#3dd68c";if(e.includes("WPA2"))return"#5b8cff";if(e.includes("WPA"))return"#f0b429";if(e.includes("WEP")||e==="NONE"||e==="OPEN")return"#ef6b6b";return"#5b8cff"}
+function displayName(n){return n.name&&n.name.trim()?n.name:"[hidden]"}
+function origin(){return{lat:Number(el("lat").value),lng:Number(el("lng").value)}}
+function visible(){const q=el("filter").value.trim().toLowerCase();return networks.filter(n=>{if(!layersOn[n.kind])return false;if(!q)return true;return [n.name,n.id,n.type,n.encryption,n.kind].join(" ").toLowerCase().includes(q)})}
+function renderList(){const items=visible().sort((a,b)=>(a.distanceKm??9e9)-(b.distanceKm??9e9));el("list").innerHTML=items.map(n=>`<button class="row ${selected===n.id?"sel":""}" data-id="${n.id}"><div class="row-top"><div class="ssid">${displayName(n)}</div><span class="tag ${n.kind}">${n.kind}</span></div><div class="meta"><span>${n.id}</span>${n.type?`<span>${n.type}</span>`:""}${n.encryption?`<span>${n.encryption}</span>`:""}${n.channel?`<span>ch ${n.channel}</span>`:""}${n.distanceKm!=null?`<span>${n.distanceKm.toFixed(2)} km</span>`:""}</div></button>`).join("")||`<div class="row"><div class="ssid">No networks in view</div></div>`}
+function renderMarkers(){markers.forEach(m=>m.remove());markers=[];visible().forEach(n=>{const m=L.circleMarker([n.lat,n.lng],{radius:selected===n.id?9:6,color:colorFor(n),weight:selected===n.id?2:1,fillColor:colorFor(n),fillOpacity:selected===n.id?0.95:0.7}).addTo(map);m.bindPopup(`<b>${displayName(n)}</b><br>${n.kind.toUpperCase()} · ${n.type||""}<br>${n.id}`);m.on("click",()=>{selected=n.id;renderList();renderMarkers();map.panTo([n.lat,n.lng])});markers.push(m)})}
+function setOrigin(lat,lng,scanAfter){el("lat").value=Number(lat).toFixed(5);el("lng").value=Number(lng).toFixed(5);const o=origin();originMarker.setLatLng([o.lat,o.lng]);const r=Number(el("radius").value);scanCircle.setLatLng([o.lat,o.lng]).setRadius(r*1000);map.setView([o.lat,o.lng],Math.max(map.getZoom(),15));if(scanAfter)scan()}
+async function scan(){el("err").hidden=true;el("stats").textContent="Scanning…";const creds=loadCreds();const o=origin();const layers=Object.keys(layersOn).filter(k=>layersOn[k]);try{const res=await fetch("/api/search",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({lat:o.lat,lng:o.lng,radiusKm:Number(el("radius").value),layers,apiName:creds.apiName||"",apiToken:creds.apiToken||"",demo:!(creds.apiName&&creds.apiToken)})});const data=await res.json();if(!res.ok)throw new Error(data.error||"Scan failed");networks=data.results||[];const t=data.totals||{};el("stats").textContent=`${data.source==="live"?"Live WiGLE":"Sample data"} · ${t.wifi||0} Wi-Fi · ${t.bluetooth||0} Bluetooth · ${t.cell||0} cell`;selected=null;renderList();renderMarkers();scanCircle.setLatLng([o.lat,o.lng]).setRadius(Number(el("radius").value)*1000)}catch(e){el("err").hidden=false;el("err").textContent=e.message;el("stats").textContent="Scan failed"}}
+map=L.map("map",{zoomControl:true}).setView([28.0395,-81.9498],15);
+L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",{attribution:"&copy; OpenStreetMap &copy; CARTO · data WiGLE.net",maxZoom:19}).addTo(map);
+originMarker=L.circleMarker([28.0395,-81.9498],{radius:5,color:"#fff",weight:2,fillColor:"#fff",fillOpacity:0.9}).addTo(map).bindTooltip("Scan origin");
+scanCircle=L.circle([28.0395,-81.9498],{radius:500,color:"#5b8cff",weight:1,fillOpacity:0.04}).addTo(map);
+map.on("click",e=>setOrigin(e.latlng.lat,e.latlng.lng,true));
+document.querySelectorAll("[data-layer]").forEach(btn=>btn.addEventListener("click",()=>{const k=btn.dataset.layer;layersOn[k]=!layersOn[k];btn.classList.toggle("off",!layersOn[k]);renderList();renderMarkers()}));
+el("filter").addEventListener("input",()=>{renderList();renderMarkers()});
+el("list").addEventListener("click",e=>{const row=e.target.closest("[data-id]");if(!row)return;const n=networks.find(x=>x.id===row.dataset.id);if(!n)return;selected=n.id;map.panTo([n.lat,n.lng]);renderList();renderMarkers()});
+el("preset").addEventListener("change",()=>{const [lat,lng]=el("preset").value.split(",").map(Number);setOrigin(lat,lng,true)});
+el("radius").addEventListener("change",()=>scanCircle.setRadius(Number(el("radius").value)*1000));
+el("geo").addEventListener("click",()=>navigator.geolocation.getCurrentPosition(pos=>setOrigin(pos.coords.latitude,pos.coords.longitude,true),()=>{el("err").hidden=false;el("err").textContent="Location permission denied."}));
+el("scan").addEventListener("click",scan);
+el("keys").addEventListener("click",()=>{const c=loadCreds();el("apiName").value=c.apiName||"";el("apiToken").value=c.apiToken||"";el("modal").classList.add("open")});
+el("modal").addEventListener("click",e=>{if(e.target.id==="modal")el("modal").classList.remove("open")});
+el("saveKeys").addEventListener("click",()=>{saveCreds({apiName:el("apiName").value.trim(),apiToken:el("apiToken").value.trim()});el("modal").classList.remove("open")});
+el("clearKeys").addEventListener("click",()=>{localStorage.removeItem(KEY);el("apiName").value="";el("apiToken").value="";el("modal").classList.remove("open")});
+scan();
+</script>
+</body>
+</html>
