@@ -3,61 +3,121 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Airgrid</title>
+  <title>Airgrid — South Beach RF survey</title>
+  <meta name="theme-color" content="#090b0d" />
+  <meta name="description" content="South Beach RF survey — 100 Wi-Fi, 94 Bluetooth, 163 cell from WiGLE." />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
   <style>
-    :root{--bg:#090b0d;--surface:#101418;--elevated:#151b21;--line:#1d242c;--text:#e8edf2;--muted:#8b97a4;--subtle:#5d6b78;--accent:#7a9e8a;--wifi:#5b8cff;--bt:#2fd3c0;--cell:#f0b429;--open:#d4786a}
-    *{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:"IBM Plex Sans",system-ui,sans-serif}
-    button,input,select{font:inherit}button{cursor:pointer}
-    .app{height:100dvh;display:grid;grid-template-rows:auto auto auto 1fr}
-    header{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--line);background:var(--surface)}
-    .brand{display:flex;gap:10px;align-items:center}
-    .mark{width:32px;height:32px;display:grid;place-items:center;background:var(--elevated);border-radius:4px;color:var(--accent);font-weight:600}
-    h1{margin:0;font-size:14px} .sub{font-size:11px;color:var(--muted)}
+    :root{
+      --bg:#090b0d;--surface:#111418;--elevated:#181c21;--fg:#eceeef;--muted:#8a929a;--subtle:#6a727a;
+      --accent:#c5ccd4;--accent-fg:#090b0d;--border:rgba(236,238,239,.12);--border-strong:rgba(236,238,239,.22);
+      --wifi:#7a9e8a;--bt:#2fd3c0;--cell:#f0b429;--open:#d4786a;--att:#8aa3b8;--vz:#c45c4a;--tm:#c4a574;
+      --radius-xs:4px;--radius-sm:8px;--radius-md:12px;--radius-lg:16px;
+      --font-sans:"IBM Plex Sans",system-ui,sans-serif;--font-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:var(--font-sans);-webkit-font-smoothing:antialiased}
+    button,input,select{font:inherit;color:inherit}
+    button{cursor:pointer}
+    button:disabled{opacity:.45;cursor:not-allowed}
+    .app{height:100dvh;display:flex;flex-direction:column;min-width:0;overflow:hidden}
+    header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);background:var(--bg)}
+    .brand{display:flex;gap:12px;align-items:center;min-width:0}
+    .mark{width:32px;height:32px;display:grid;place-items:center;background:var(--elevated);border:1px solid var(--border);border-radius:var(--radius-xs);color:var(--accent)}
+    h1{margin:0;font-size:14px;font-weight:600;letter-spacing:-.01em}
+    .sub{font-size:11px;color:var(--muted)}
+    .clock{font-family:var(--font-mono);font-size:11px;color:var(--subtle);margin-left:8px}
     .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
-    .btn{background:var(--elevated);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:7px 12px;font-size:12px}
-    .btn.primary{background:var(--text);color:var(--bg);font-weight:600;border-color:transparent}
-    .btn.on{outline:1px solid var(--accent)}
-    .btn.off{opacity:.4}
-    .banner{padding:8px 14px;border-bottom:1px solid var(--line);background:#0c1014;font-size:12px;color:var(--muted)}
-    form.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:end;padding:10px 14px;border-bottom:1px solid var(--line)}
-    .field{display:grid;gap:4px} .field label{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--subtle)}
-    .field input,.field select{background:#0b0e11;border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px 10px;font-size:12px;font-family:"IBM Plex Mono",monospace;min-width:7.5rem}
-    .stage{display:grid;grid-template-columns:minmax(18rem,24rem) 1fr;min-height:0}
-    aside{border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0;background:var(--surface)}
-    .stats{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--line);background:var(--line);gap:1px}
-    .stat{background:var(--surface);padding:8px 10px} .stat b{display:block;font-family:"IBM Plex Mono",monospace;font-size:14px} .stat span{font-size:10px;text-transform:uppercase;color:var(--subtle)}
-    .tools{padding:8px;border-bottom:1px solid var(--line)}
-    .tools input{width:100%;background:#0b0e11;border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px 10px}
+    .btn{background:var(--elevated);color:var(--fg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px;font-size:12px;font-weight:500;min-height:40px;transition:background .15s ease,border-color .15s ease,transform .15s ease}
+    .btn:hover{background:var(--surface);border-color:var(--border-strong)}
+    .btn:active{transform:scale(.98)}
+    .btn.primary{background:var(--accent);color:var(--accent-fg);border-color:transparent}
+    .btn.primary:hover{filter:brightness(1.06)}
+    .btn.on{background:var(--accent);color:var(--accent-fg);border-color:transparent}
+    .btn.off{opacity:.45}
+    .banner{padding:8px 16px;border-bottom:1px solid var(--border);background:color-mix(in oklab,var(--elevated) 70%,transparent);font-size:12px;color:var(--muted)}
+    form.toolbar{display:flex;flex-wrap:wrap;gap:12px;align-items:end;padding:12px 16px;border-bottom:1px solid var(--border)}
+    .field{display:grid;gap:6px}
+    .field label{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);font-weight:500}
+    .field input,.field select{background:var(--elevated);border:1px solid var(--border);color:var(--fg);border-radius:var(--radius-sm);padding:8px 10px;font-size:12px;font-family:var(--font-mono);min-width:7.5rem;min-height:40px}
+    .field input:focus,.field select:focus,.btn:focus-visible{outline:2px solid color-mix(in oklab,var(--accent) 50%,transparent);outline-offset:1px}
+    .stage{display:grid;grid-template-columns:minmax(18rem,24rem) 1fr;min-height:0;flex:1}
+    aside{border-right:1px solid var(--border);display:flex;flex-direction:column;min-height:0;min-width:0;background:var(--surface);overflow:hidden}
+    .stats{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--border);background:var(--border);gap:1px}
+    .stat{background:var(--surface);padding:10px 12px}
+    .stat b{display:block;font-family:var(--font-mono);font-size:16px;font-variant-numeric:tabular-nums}
+    .stat span{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle)}
+    .tools{display:flex;gap:8px;flex-wrap:wrap;padding:10px;border-bottom:1px solid var(--border)}
+    .tools input,.tools select{background:var(--bg);border:1px solid var(--border);color:var(--fg);border-radius:var(--radius-sm);padding:8px 10px;font-size:12px;min-height:36px}
+    .tools input{flex:1;min-width:10rem}
+    .mix{border-bottom:1px solid var(--border)}
+    .mix summary{cursor:pointer;padding:8px 14px;font-size:10px;text-transform:uppercase;letter-spacing:.16em;color:var(--subtle);list-style:none}
+    .mix-body{padding:0 14px 12px;display:grid;gap:8px;font-size:12px;color:var(--muted)}
+    .bar{height:4px;border-radius:99px;background:var(--border);overflow:hidden;display:flex}
+    .bar i{display:block;height:100%}
+    .chips{display:flex;flex-wrap:wrap;gap:6px}
+    .chip{border:1px solid var(--border);background:var(--elevated);border-radius:99px;padding:4px 8px;font-size:11px;color:var(--fg)}
     .list{overflow:auto;flex:1}
-    .item{width:100%;text-align:left;background:transparent;border:0;border-bottom:1px solid var(--line);color:inherit;padding:10px 12px;display:grid;gap:3px}
+    .item{width:100%;text-align:left;background:transparent;border:0;border-bottom:1px solid var(--border);color:inherit;padding:10px 12px;display:grid;gap:3px}
     .item:hover,.item.sel{background:var(--elevated)}
     .ssid{font-size:13px;font-weight:500;display:flex;justify-content:space-between;gap:8px}
-    .meta{font-size:11px;color:var(--muted);font-family:"IBM Plex Mono",monospace}
-    .tag{font-size:10px;text-transform:uppercase;letter-spacing:.06em}
+    .meta{font-size:11px;color:var(--muted);font-family:var(--font-mono)}
+    .tag{font-size:10px;text-transform:uppercase;letter-spacing:.06em;font-weight:500}
     .tag.wifi{color:var(--wifi)}.tag.bluetooth{color:var(--bt)}.tag.cell{color:var(--cell)}
-    #map{min-height:0;background:#0a0d10}
-    .legend{position:absolute;left:12px;top:12px;z-index:400;background:rgba(16,20,24,.92);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:11px;color:var(--muted)}
-    .legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
-    .err{color:#ef6b6b;font-size:12px;padding:8px 12px;border-bottom:1px solid var(--line)}
+    .mapwrap{position:relative;min-height:0;background:var(--bg)}
+    #map{height:100%;width:100%;background:var(--bg)}
+    .leaflet-container{background:var(--bg);font-family:var(--font-sans)}
+    .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.92) contrast(.95) saturate(.35)}
+    .leaflet-control-zoom a{background:var(--elevated)!important;color:var(--fg)!important;border-color:var(--border)!important}
+    .leaflet-control-attribution{background:color-mix(in oklab,var(--bg) 82%,transparent)!important;color:var(--subtle)!important;font-size:10px!important}
+    .hud{position:absolute;left:12px;bottom:28px;z-index:500;display:grid;gap:8px;pointer-events:none}
+    .hud .panel{pointer-events:auto;background:color-mix(in oklab,var(--surface) 92%,transparent);border:1px solid var(--border);border-radius:var(--radius-md);padding:10px 12px;font-size:11px;color:var(--muted);min-width:11rem}
+    .hud b{color:var(--fg);font-family:var(--font-mono);font-weight:500}
+    .hud .toggles{display:flex;gap:6px;margin-top:8px}
+    .hud .toggles button{min-height:32px;padding:4px 8px;font-size:11px}
+    .radar{position:absolute;inset:0;pointer-events:none;z-index:450;overflow:hidden;mix-blend-mode:screen;opacity:.55}
+    .radar-sweep{position:absolute;left:50%;top:50%;width:140%;height:140%;transform:translate(-50%,-50%);background:conic-gradient(from 0deg,transparent 0deg,rgba(197,204,212,.16) 28deg,transparent 48deg);animation:sweep 9s linear infinite}
+    @keyframes sweep{to{transform:translate(-50%,-50%) rotate(360deg)}}
+    .heat{position:absolute;inset:0;pointer-events:none;z-index:400;mix-blend-mode:screen;opacity:.7}
+    .brief{position:absolute;inset:0;z-index:600;background:color-mix(in oklab,var(--bg) 72%,transparent);display:grid;place-items:end start;padding:24px;pointer-events:none;transition:opacity .4s ease}
+    .brief .card{pointer-events:auto;max-width:22rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px;display:grid;gap:8px}
+    .brief h2{margin:0;font-size:16px;font-weight:600}
+    .brief p{margin:0;font-size:13px;color:var(--muted);line-height:1.5}
+    .err{color:#c45c4a;font-size:12px;padding:8px 12px;border-bottom:1px solid var(--border)}
     .modal{position:fixed;inset:0;background:rgba(0,0,0,.62);display:none;align-items:center;justify-content:center;z-index:5000;padding:16px}
     .modal.open{display:flex}
-    .card{width:min(520px,100%);max-height:86vh;overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px;display:grid;gap:12px}
-    .card h2{margin:0;font-size:16px}
-    .dl{display:grid;grid-template-columns:7.5rem 1fr;gap:6px 12px}
-    .dl dt{color:var(--subtle);font-size:11px;text-transform:uppercase}
-    .dl dd{margin:0;font-family:"IBM Plex Mono",monospace;font-size:12px;word-break:break-all}
+    .card{width:min(560px,100%);max-height:86vh;overflow:auto;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;display:grid;gap:12px}
+    .card h2{margin:0;font-size:16px;font-weight:600}
+    .dl{display:grid;grid-template-columns:8rem 1fr;gap:6px 12px}
+    .dl dt{color:var(--subtle);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+    .dl dd{margin:0;font-family:var(--font-mono);font-size:12px;word-break:break-all}
     .actions{display:flex;gap:8px;flex-wrap:wrap}
     input[type=file]{display:none}
-    @media(max-width:840px){.stage{grid-template-columns:1fr;grid-template-rows:48vh 1fr}aside{border-right:0;border-top:1px solid var(--line)}}
+    @media (prefers-reduced-motion:reduce){.radar-sweep,.btn{animation:none;transition:none}}
+    @media(max-width:840px){
+      .app{overflow:auto;height:auto;min-height:100dvh}
+      .stage{grid-template-columns:1fr;grid-template-rows:52vh auto}
+      aside{border-right:0;border-top:1px solid var(--border);max-height:none}
+      .list{max-height:50vh}
+    }
   </style>
 </head>
 <body>
-<div class="app">
+<div class="app" data-build="southbeach-357">
   <header>
-    <div class="brand"><div class="mark">A</div><div><h1>Airgrid</h1><div class="sub">Wi-Fi, Bluetooth, and cell map</div></div></div>
+    <div class="brand">
+      <div class="mark" aria-hidden="true">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1.2" fill="currentColor" stroke="none"/></svg>
+      </div>
+      <div>
+        <h1>Airgrid</h1>
+        <div class="sub">South Beach RF survey</div>
+      </div>
+      <div class="clock" id="clock"></div>
+    </div>
     <div class="row">
       <button class="btn on" data-layer="wifi" type="button">Wi-Fi</button>
       <button class="btn on" data-layer="bluetooth" type="button">BT</button>
@@ -65,12 +125,29 @@
       <button class="btn" id="keys" type="button">WiGLE key</button>
     </div>
   </header>
-  <div class="banner" id="stats">Loading saved results…</div>
+  <div class="banner" id="stats">Loading South Beach grid…</div>
   <form class="toolbar" id="toolbar">
-    <div class="field"><label>Latitude</label><input id="lat" value="25.784025" /></div>
-    <div class="field"><label>Longitude</label><input id="lng" value="-80.136606" /></div>
-    <div class="field"><label>Radius km</label><select id="radius"><option value="0.25">0.25</option><option value="0.5" selected>0.5</option><option value="1">1</option><option value="1.5">1.5</option><option value="2">2</option><option value="3">3</option></select></div>
-    <div class="field"><label>City</label>
+    <div class="field"><label for="lat">Latitude</label><input id="lat" value="25.784025" inputmode="decimal" /></div>
+    <div class="field"><label for="lng">Longitude</label><input id="lng" value="-80.136606" inputmode="decimal" /></div>
+    <div class="field"><label for="radius">Radius km</label>
+      <select id="radius">
+        <option value="0.25">0.25</option>
+        <option value="0.5">0.50</option>
+        <option value="1">1.00</option>
+        <option value="1.5" selected>1.50</option>
+        <option value="2">2.00</option>
+        <option value="3">3.00</option>
+      </select>
+    </div>
+    <div class="field"><label for="seen">Last seen</label>
+      <select id="seen">
+        <option value="30">Last 30 days</option>
+        <option value="180">Last 6 months</option>
+        <option value="730" selected>Last 2 years</option>
+        <option value="0">Any time</option>
+      </select>
+    </div>
+    <div class="field"><label for="preset">City</label>
       <select id="preset">
         <option value="25.784025,-80.136606">Miami Beach</option>
         <option value="28.039465,-81.949804">Lakeland, FL</option>
@@ -98,82 +175,202 @@
         <div class="stat"><b id="nBt">0</b><span>BT</span></div>
         <div class="stat"><b id="nCell">0</b><span>Cell</span></div>
       </div>
-      <div class="tools"><input id="filter" placeholder="Filter name, MAC, type" /></div>
+      <div class="tools">
+        <input id="filter" placeholder="Filter name, MAC, type" />
+        <select id="enc">
+          <option value="all">All enc</option>
+          <option value="None">Open</option>
+          <option value="WEP">WEP</option>
+          <option value="WPA">WPA</option>
+          <option value="WPA2">WPA2</option>
+          <option value="WPA3">WPA3</option>
+        </select>
+        <select id="sort">
+          <option value="distance">Nearest</option>
+          <option value="ssid">Name</option>
+          <option value="last">Last seen</option>
+          <option value="kind">Radio</option>
+        </select>
+      </div>
       <div class="err" id="err" hidden></div>
+      <details class="mix" open>
+        <summary>Mix</summary>
+        <div class="mix-body">
+          <div class="bar" id="mixBar"></div>
+          <div id="mixText"></div>
+          <div class="chips" id="named"></div>
+        </div>
+      </details>
       <div class="list" id="list"></div>
     </aside>
-    <section style="position:relative;min-height:0">
-      <div class="legend">
-        <div><i style="background:var(--wifi)"></i>Wi-Fi</div>
-        <div><i style="background:var(--bt)"></i>Bluetooth</div>
-        <div><i style="background:var(--cell)"></i>Cell</div>
+    <section class="mapwrap">
+      <div id="map"></div>
+      <canvas class="heat" id="heat" hidden></canvas>
+      <div class="radar" id="radar"><div class="radar-sweep"></div></div>
+      <div class="hud">
+        <div class="panel">
+          <div><b id="hudFix">25.784025, -80.136606</b></div>
+          <div id="hudCounts">357 radios</div>
+          <div class="toggles">
+            <button class="btn on" id="togHeat" type="button">Heat</button>
+            <button class="btn on" id="togRadar" type="button">Radar</button>
+            <button class="btn on" id="togCov" type="button">Coverage</button>
+          </div>
+        </div>
       </div>
-      <div id="map" style="height:100%"></div>
+      <div class="brief" id="brief">
+        <div class="card">
+          <div class="tag cell">South Beach</div>
+          <h2>RF survey locked</h2>
+          <p>100 Wi-Fi · 94 Bluetooth · 163 cell towers, bundled from your WiGLE dumps. No quota burned. Click any pin for the full dossier.</p>
+          <div class="actions"><button class="btn primary" id="dismissBrief" type="button">Enter grid</button></div>
+        </div>
+      </div>
     </section>
   </div>
 </div>
 <div class="modal" id="keyModal"><div class="card">
   <h2>WiGLE API credentials</h2>
-  <p class="sub">API Name (AID-…) and token from wigle.net/account — not the encoded blob. Keys stay in this browser. Each layer is 1 daily search.</p>
+  <p class="sub">API Name (AID-…) and token from wigle.net/account — not the encoded blob. Keys stay in this browser. Each layer costs 1 daily search.</p>
   <div class="field"><label>API name</label><input id="apiName" placeholder="AID-xxxxxxxx-xxxxx" /></div>
   <div class="field"><label>API token</label><input id="apiToken" type="password" placeholder="Stored locally" /></div>
   <div class="actions"><button class="btn" id="clearKeys" type="button">Remove</button><button class="btn primary" id="saveKeys" type="button">Save</button></div>
 </div></div>
 <div class="modal" id="detailModal"><div class="card" id="detailCard"></div></div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="./data/scene.js"></script>
 <script>
-let BUNDLED_CELLS = [];
-async function loadBundledCells(){
-  const urls = ["./data/miami-beach-cells.json","https://raw.githubusercontent.com/brockmisner/airgrid/93b4f08/data/miami-beach-cells.json","https://cdn.jsdelivr.net/gh/brockmisner/airgrid@93b4f08/data/miami-beach-cells.json"];
-  for (const url of urls){
-    try {
-      const res = await fetch(url, {cache:"no-store"});
-      if (!res.ok) continue;
-      const rows = await res.json();
-      if (Array.isArray(rows) && rows.length){ BUNDLED_CELLS = rows; return; }
-    } catch {}
-  }
-}
-const CREDS="airgrid.creds.v2", CACHE="airgrid.cache.v4", USAGE="airgrid.usage.v1";
+const CREDS="airgrid.creds.v2", CACHE="airgrid.cache.v5", USAGE="airgrid.usage.v1";
+const MIAMI={lat:25.784025,lng:-80.136606};
 const layersOn={wifi:true,bluetooth:true,cell:true};
-let networks=[], selected=null, markers=[], map, originMarker, scanCircle;
+let SCENE=window.AIRGRID_SCENE||null;
+let networks=[], selected=null, markers=[], cov=[], map, originMarker, scanCircle;
+let heatOn=true, radarOn=true, covOn=true;
 const el=id=>document.getElementById(id);
 const ESCMAP={"&":"&"+"amp;","<":"&"+"lt;",">":"&"+"gt;",'"':"&"+"quot;","'":"&#39;"};
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>ESCMAP[c]);
-function loadJSON(k, fallback){try{return JSON.parse(localStorage.getItem(k)||"")||fallback}catch{return fallback}}
-function saveJSON(k,v){localStorage.setItem(k, JSON.stringify(v))}
+function loadJSON(k, fallback){try{const v=JSON.parse(localStorage.getItem(k)||""); return v||fallback}catch{return fallback}}
+function saveJSON(k,v){try{localStorage.setItem(k, JSON.stringify(v))}catch{}}
 function pacificDay(){return new Intl.DateTimeFormat("en-CA",{timeZone:"America/Los_Angeles",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date())}
 function loadUsage(){const u=loadJSON(USAGE,{day:"",liveQueries:0}); if(u.day!==pacificDay()) return {day:pacificDay(), liveQueries:0}; return u}
 function addUsage(n){const u=loadUsage(); u.liveQueries+=n; saveJSON(USAGE,u); return u}
 function origin(){return {lat:Number(el("lat").value), lng:Number(el("lng").value)}}
 function haversine(a,b,c,d){const R=6371,x=(c-a)*Math.PI/180,y=(d-b)*Math.PI/180,s=Math.sin(x/2)**2+Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(y/2)**2;return 2*R*Math.asin(Math.min(1,Math.sqrt(s)))}
-function colorFor(n){if(n.kind==="bluetooth")return "#2fd3c0"; if(n.kind==="cell")return "#f0b429"; const e=(n.encryption||"").toUpperCase(); if(e.includes("WPA3"))return "#6b9b8c"; if(e.includes("WPA2"))return "#7a9e8a"; if(e.includes("WPA"))return "#8aa3b8"; if(e==="NONE"||e==="OPEN"||e.includes("WEP"))return "#d4786a"; return "#5b8cff"}
-function displayName(n){const s=(n.name||n.ssid||"").trim(); return s||"[hidden]"}
+function latOf(n){return Number(n.trilat??n.lat)}
+function lngOf(n){return Number(n.trilong??n.lng)}
+function idOf(n){return String(n.netid||n.id||"")}
+function nameOf(n){const s=String(n.ssid||n.name||"").trim(); return s||"[hidden]"}
 function kindLabel(k){return k==="wifi"?"Wi-Fi":k==="bluetooth"?"Bluetooth":"Cell"}
-function visible(){const q=el("filter").value.trim().toLowerCase(); const o=origin(); return networks.filter(n=>{if(!layersOn[n.kind])return false; n.distanceKm=haversine(o.lat,o.lng,n.lat,n.lng); if(!q)return true; return [n.name,n.ssid,n.id,n.type,n.encryption,n.kind,n.city,n.road].join(" ").toLowerCase().includes(q)}).sort((a,b)=>(a.distanceKm??9)-(b.distanceKm??9))}
+function encKind(raw){const v=String(raw||"").toUpperCase(); if(!v||v==="UNKNOWN"||v==="?") return "Unknown"; if(v.includes("WPA3")) return "WPA3"; if(v.includes("WPA2")) return "WPA2"; if(v.includes("WPA")) return "WPA"; if(v.includes("WEP")) return "WEP"; if(v==="NONE"||v==="OPEN"||v==="N") return "None"; return "Unknown"}
+function colorFor(n){
+  if(n.kind==="bluetooth") return "#2fd3c0";
+  if(n.kind==="cell"){const s=String(n.ssid||n.name||"").toLowerCase(); if(s.includes("verizon")) return "#c45c4a"; if(s.includes("t-mobile")||s.includes("tmobile")) return "#c4a574"; if(s.includes("att")||s.includes("at&t")) return "#8aa3b8"; return "#f0b429"}
+  const e=encKind(n.encryption); if(e==="WPA3") return "#6b9b8c"; if(e==="WPA2") return "#7a9e8a"; if(e==="WPA") return "#8aa3b8"; if(e==="None"||e==="WEP") return "#d4786a"; return "#8a929a";
+}
+function distLabel(km){if(km==null||!Number.isFinite(km)) return ""; return km<1?Math.round(km*1000)+" m":km.toFixed(2)+" km"}
+function visible(){
+  const q=el("filter").value.trim().toLowerCase();
+  const enc=el("enc").value;
+  const sort=el("sort").value;
+  const o=origin();
+  const items=networks.filter(n=>{
+    if(!layersOn[n.kind]) return false;
+    if(n.kind==="wifi" && enc!=="all" && encKind(n.encryption)!==enc) return false;
+    n.distanceKm=haversine(o.lat,o.lng,latOf(n),lngOf(n));
+    if(!q) return true;
+    return [n.ssid,n.name,n.netid,n.id,n.type,n.encryption,n.kind,n.city,n.road,n.gentype,n.capabilities].join(" ").toLowerCase().includes(q);
+  });
+  items.sort((a,b)=>{
+    if(sort==="ssid") return nameOf(a).localeCompare(nameOf(b));
+    if(sort==="kind") return a.kind.localeCompare(b.kind);
+    if(sort==="last") return String(b.lasttime||b.lastupdt||"").localeCompare(String(a.lasttime||a.lastupdt||""));
+    return (a.distanceKm??9)-(b.distanceKm??9);
+  });
+  return items;
+}
 function counts(list){return {all:list.length, wifi:list.filter(n=>n.kind==="wifi").length, bluetooth:list.filter(n=>n.kind==="bluetooth").length, cell:list.filter(n=>n.kind==="cell").length}}
-function render(){const items=visible(); const c=counts(items); el("nAll").textContent=c.all; el("nWifi").textContent=c.wifi; el("nBt").textContent=c.bluetooth; el("nCell").textContent=c.cell;
-  el("list").innerHTML=items.map(n=>`<button class="item ${selected===n.id?"sel":""}" data-id="${esc(n.id)}"><div class="ssid"><span>${esc(displayName(n))}</span><span class="tag ${n.kind}">${n.kind}</span></div><div class="meta">${esc(n.id)} ${esc(n.type||"")} ${n.distanceKm!=null?(n.distanceKm<1?Math.round(n.distanceKm*1000)+" m":n.distanceKm.toFixed(2)+" km"):""}</div></button>`).join("")||`<div class="item">No radios in view</div>`;
-  markers.forEach(m=>m.remove()); markers=[]; items.forEach(n=>{const m=L.circleMarker([n.lat,n.lng],{radius:selected===n.id?9:6,color:selected===n.id?"#fff":colorFor(n),weight:selected===n.id?2:1,fillColor:colorFor(n),fillOpacity:.9}).addTo(map); m.bindPopup(`<b>${esc(displayName(n))}</b><br>${kindLabel(n.kind)} ${esc(n.type||"")}<br>${esc(n.id)}<br><i>Click for full details</i>`); m.on("click",()=>showDetail(n)); markers.push(m)});
+function namedBt(list){return list.filter(n=>n.kind==="bluetooth" && nameOf(n)!=="[hidden]" && !/^s[0-9a-f]{8,}$/i.test(nameOf(n)) && nameOf(n).length>2).slice(0,8)}
+function render(){
+  const items=visible(); const c=counts(items);
+  el("nAll").textContent=c.all; el("nWifi").textContent=c.wifi; el("nBt").textContent=c.bluetooth; el("nCell").textContent=c.cell;
+  el("hudCounts").textContent=`${c.wifi} Wi-Fi · ${c.bluetooth} BT · ${c.cell} cell`;
+  const tot=Math.max(1,c.all);
+  el("mixBar").innerHTML=`<i style="width:${c.wifi/tot*100}%;background:var(--wifi)"></i><i style="width:${c.bluetooth/tot*100}%;background:var(--bt)"></i><i style="width:${c.cell/tot*100}%;background:var(--cell)"></i>`;
+  el("mixText").textContent=`Wi-Fi ${c.wifi} · Bluetooth ${c.bluetooth} · Cell ${c.cell}`;
+  el("named").innerHTML=namedBt(items).map(n=>`<button class="chip" data-jump="${esc(idOf(n))}">${esc(nameOf(n))}</button>`).join("");
+  el("list").innerHTML=items.map(n=>`<button class="item ${selected===idOf(n)?"sel":""}" data-id="${esc(idOf(n))}"><div class="ssid"><span>${esc(nameOf(n))}</span><span class="tag ${n.kind}">${n.kind}</span></div><div class="meta">${esc(idOf(n))} ${esc(n.type||n.gentype||"")} ${esc(distLabel(n.distanceKm))}</div></button>`).join("")||`<div class="item">No radios in view</div>`;
+  markers.forEach(m=>m.remove()); markers=[];
+  cov.forEach(m=>m.remove()); cov=[];
+  items.forEach(n=>{
+    const lat=latOf(n), lng=lngOf(n); if(!Number.isFinite(lat)||!Number.isFinite(lng)) return;
+    const sel=selected===idOf(n);
+    const m=L.circleMarker([lat,lng],{radius:sel?9: n.kind==="cell"?7:5, color:sel?"#fff":colorFor(n), weight:sel?2:1, fillColor:colorFor(n), fillOpacity:.92, pane:"markerPane"}).addTo(map);
+    m.bindPopup(`<b>${esc(nameOf(n))}</b><br>${kindLabel(n.kind)} ${esc(n.type||n.gentype||"")}<br>${esc(idOf(n))}<br><i>Click for full details</i>`);
+    m.on("click",()=>showDetail(n));
+    markers.push(m);
+    if(covOn && n.kind==="cell" && (n.qos||0)>=4){
+      cov.push(L.circle([lat,lng],{radius:70+(n.qos||0)*28, color:colorFor(n), weight:0, fillColor:colorFor(n), fillOpacity:.07, interactive:false}).addTo(map));
+    }
+  });
+  drawHeat(items);
 }
-function pair(l,v){if(v==null||v==="")return ""; return `<dt>${esc(l)}</dt><dd>${esc(v)}</dd>`}
-function showDetail(n){selected=n.id; render(); map.panTo([n.lat,n.lng]); const maps=`https://www.google.com/maps?q=${n.lat},${n.lng}`;
-  el("detailCard").innerHTML=`<div class="tag ${n.kind}">${kindLabel(n.kind)}</div><h2>${esc(displayName(n))}</h2><dl class="dl">${pair("ID",n.id)}${pair("Type",n.type)}${pair("Encryption",n.encryption)}${pair("Channel",n.channel)}${pair("QoS",n.qos)}${pair("Attributes",n.attributes)}${pair("Latitude",Number(n.lat).toFixed(6))}${pair("Longitude",Number(n.lng).toFixed(6))}${pair("Distance",n.distanceKm!=null?(n.distanceKm<1?Math.round(n.distanceKm*1000)+" m":n.distanceKm.toFixed(2)+" km"):"")}${pair("First seen",n.firsttime)}${pair("Last seen",n.lasttime||n.lastupdt)}${pair("Road",n.road)}${pair("City",n.city)}${pair("Region",n.region)}${pair("Country",n.country)}${pair("Postal",n.postalcode)}</dl><div class="actions"><button class="btn" id="copyCoords">Copy coords</button><a class="btn" href="${maps}" target="_blank" rel="noreferrer">Open map</a><button class="btn" id="closeDetail">Close</button></div>`;
-  el("detailModal").classList.add("open"); el("closeDetail").onclick=()=>el("detailModal").classList.remove("open");
-  el("copyCoords").onclick=()=>navigator.clipboard.writeText(n.lat+", "+n.lng);
+function pair(l,v){if(v==null||v==="") return ""; return `<dt>${esc(l)}</dt><dd>${esc(v)}</dd>`}
+function showDetail(n){
+  selected=idOf(n); render();
+  const lat=latOf(n), lng=lngOf(n);
+  map.panTo([lat,lng]);
+  const maps=`https://www.google.com/maps?q=${lat},${lng}`;
+  const wigle=`https://wigle.net/search?netid=${encodeURIComponent(idOf(n))}`;
+  const addr=[n.housenumber,n.road,n.city,n.region,n.country,n.postalcode].filter(Boolean).join(", ");
+  const skip=new Set(["id"]);
+  const labels={netid:"ID",ssid:"Name",name:"Reported name",kind:"Layer",type:"Type",gentype:"Generation",encryption:"Encryption",wep:"WEP flag",channel:"Channel",frequency:"Frequency",qos:"QoS",attributes:"Attributes",capabilities:"Capabilities",mfgrId:"Manufacturer",device:"Device class",transid:"Transaction",trilat:"Latitude",trilong:"Longitude",lat:"Latitude",lng:"Longitude",firsttime:"First seen",lasttime:"Last seen",lastupdt:"Last update",comment:"Comment",freenet:"Free net",dhcp:"DHCP",paynet:"Pay net",housenumber:"House number",road:"Road",city:"City",region:"Region",country:"Country",postalcode:"Postal code"};
+  let extra="";
+  Object.keys(n).forEach(k=>{ if(skip.has(k)||labels[k]||k==="distanceKm"||k==="raw") return; extra+=pair(k,n[k]); });
+  el("detailCard").innerHTML=`<div class="tag ${n.kind}">${kindLabel(n.kind)}</div><h2>${esc(nameOf(n))}</h2><p class="sub">${esc(addr)}</p><dl class="dl">${pair("ID",idOf(n))}${pair("Type",n.type)}${pair("Generation",n.gentype)}${pair("Encryption",n.encryption)}${pair("Channel",n.channel)}${pair("Frequency",n.frequency)}${pair("QoS",n.qos)}${pair("Attributes",n.attributes)}${pair("Capabilities",n.capabilities)}${pair("Manufacturer",n.mfgrId)}${pair("Device class",n.device)}${pair("Latitude",Number(lat).toFixed(6))}${pair("Longitude",Number(lng).toFixed(6))}${pair("Distance",distLabel(n.distanceKm))}${pair("First seen",n.firsttime)}${pair("Last seen",n.lasttime||n.lastupdt)}${pair("Last update",n.lastupdt)}${pair("Road",n.road)}${pair("City",n.city)}${pair("Region",n.region)}${pair("Country",n.country)}${pair("Postal",n.postalcode)}${pair("Transaction",n.transid)}${extra}</dl><div class="actions"><button class="btn" id="copyCoords" type="button">Copy coords</button><a class="btn" href="${maps}" target="_blank" rel="noreferrer">Open map</a><a class="btn" href="${wigle}" target="_blank" rel="noreferrer">WiGLE</a><button class="btn primary" id="closeDetail" type="button">Close</button></div>`;
+  el("detailModal").classList.add("open");
+  el("closeDetail").onclick=()=>el("detailModal").classList.remove("open");
+  el("copyCoords").onclick=()=>navigator.clipboard.writeText(lat+", "+lng);
 }
-function setOrigin(lat,lng,doScan){el("lat").value=Number(lat).toFixed(6); el("lng").value=Number(lng).toFixed(6); const o=origin(); originMarker.setLatLng([o.lat,o.lng]); scanCircle.setLatLng([o.lat,o.lng]).setRadius(Number(el("radius").value)*1000); map.setView([o.lat,o.lng], Math.max(map.getZoom(),15)); if(doScan) scan(false)}
+function setOrigin(lat,lng,doScan){
+  el("lat").value=Number(lat).toFixed(6); el("lng").value=Number(lng).toFixed(6);
+  const o=origin();
+  originMarker.setLatLng([o.lat,o.lng]);
+  scanCircle.setLatLng([o.lat,o.lng]).setRadius(Number(el("radius").value)*1000);
+  el("hudFix").textContent=`${o.lat.toFixed(6)}, ${o.lng.toFixed(6)}`;
+  map.setView([o.lat,o.lng], Math.max(map.getZoom(),15));
+  if(doScan) scan(false);
+}
 function cacheKey(lat,lng,r,kind){return `${Number(lat).toFixed(4)}:${Number(lng).toFixed(4)}:${Number(r).toFixed(2)}:${kind}`}
 function saveLayer(lat,lng,r,kind,results,source){const store=loadJSON(CACHE,{}); store[cacheKey(lat,lng,r,kind)]={source,results,savedAt:Date.now()}; saveJSON(CACHE,store)}
 function readLayer(lat,lng,r,kind){return loadJSON(CACHE,{})[cacheKey(lat,lng,r,kind)]||null}
-function nearMiami(lat,lng){return haversine(lat,lng,25.784025,-80.136606)<1.2}
-function collect(lat,lng,r,kinds){const merged=[]; let live=false, missing=[];
-  for(const k of kinds){ const cached=readLayer(lat,lng,r,k); if(cached){ merged.push(...cached.results); if(cached.source==="live") live=true; continue;}
-    if(k==="cell" && nearMiami(lat,lng)){ saveLayer(lat,lng,r,"cell",BUNDLED_CELLS,"live"); merged.push(...BUNDLED_CELLS); live=true; continue;}
+function nearMiami(lat,lng){return haversine(lat,lng,MIAMI.lat,MIAMI.lng)<=1.6}
+function sceneLayer(kind){return (SCENE&&SCENE.results||[]).filter(n=>n.kind===kind)}
+function collect(lat,lng,r,kinds){
+  const merged=[]; let live=false, missing=[];
+  for(const k of kinds){
+    const cached=readLayer(lat,lng,r,k);
+    if(cached){ merged.push(...cached.results); if(cached.source==="live") live=true; continue; }
+    if(nearMiami(lat,lng) && SCENE){ const rows=sceneLayer(k); saveLayer(lat,lng,r,k,rows,"live"); merged.push(...rows); live=true; continue; }
     missing.push(k);
-  } return {merged, live, missing}}
+  }
+  return {merged, live, missing};
+}
 function setErr(msg){el("err").hidden=!msg; el("err").textContent=msg||""}
-async function scan(forceLive){setErr(""); const o=origin(); const r=Number(el("radius").value); const kinds=Object.keys(layersOn).filter(k=>layersOn[k]);
+function paint(source){
+  const u=loadUsage(); const c=counts(networks);
+  const label=source==="live"?"Live WiGLE":source==="demo"?"Sample data":"Saved WiGLE results";
+  el("stats").textContent=`${label}: ${c.wifi} Wi-Fi, ${c.bluetooth} Bluetooth, ${c.cell} cell — ${c.all} on this grid. Used today: ${u.liveQueries}/3. Heat, radar, and coverage stay local.`;
+  selected=null; render();
+  if(networks.length>4){
+    const b=L.latLngBounds(networks.map(n=>[latOf(n),lngOf(n)]));
+    const o=origin(); b.extend([o.lat,o.lng]);
+    map.fitBounds(b,{padding:[36,36], maxZoom:16});
+  }
+}
+async function scan(forceLive){
+  setErr("");
+  const o=origin(); const r=Number(el("radius").value);
+  const kinds=Object.keys(layersOn).filter(k=>layersOn[k]);
   if(!kinds.length){setErr("Turn on Wi-Fi, Bluetooth, or Cell."); return}
   const creds=loadJSON(CREDS,{}); const have=Boolean(creds.apiName&&creds.apiToken);
   const cached=collect(o.lat,o.lng,r,kinds);
@@ -187,49 +384,86 @@ async function scan(forceLive){setErr(""); const o=origin(); const r=Number(el("
   try{
     const res=await fetch("/api/search",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({lat:o.lat,lng:o.lng,radiusKm:r,layers:queryLayers,apiName:creds.apiName,apiToken:creds.apiToken,demo:false})});
     const data=await res.json(); if(!res.ok) throw new Error(data.error||"Scan failed");
-    const by={wifi:[],bluetooth:[],cell:[]}; (data.results||[]).forEach(n=> (by[n.kind]||by.wifi).push(n));
+    const by={wifi:[],bluetooth:[],cell:[]};
+    (data.results||[]).forEach(n=>{ const k=n.kind||"wifi"; if(!n.trilat) n.trilat=n.lat; if(!n.trilong) n.trilong=n.lng; if(!n.netid) n.netid=n.id; (by[k]||by.wifi).push(n); });
     queryLayers.forEach(k=>saveLayer(o.lat,o.lng,r,k,by[k]||[],"live"));
     addUsage(queryLayers.length);
     const next=collect(o.lat,o.lng,r,kinds); networks=next.merged.length?next.merged:(data.results||[]); paint("live");
   }catch(e){ setErr(e.message); el("stats").textContent="Scan failed"}
 }
-function paint(source){const u=loadUsage(); const c=counts(networks); el("stats").textContent=`${source==="live"?"Live WiGLE":"Saved WiGLE results"}: ${c.cell} cell, ${c.wifi} Wi-Fi, ${c.bluetooth} Bluetooth. Upload JSON to add more without quota. Used today: ${u.liveQueries}/3.`; selected=null; render()}
-function inferKind(row, filename=""){const k=String(row.kind||"").toLowerCase(); if(["wifi","bluetooth","cell"].includes(k)) return k;
+function inferKind(row, filename=""){
+  const k=String(row.kind||"").toLowerCase(); if(["wifi","bluetooth","cell"].includes(k)) return k;
   const t=String(row.type||row.Type||row.gentype||"").toLowerCase(); const a=String(row.attributes||""); const id=String(row.netid||row.id||row.MAC||""); const f=filename.toLowerCase();
-  if(f.includes("cell")||/lte|gsm|nr|cdma/.test(t+a)||/^\d{3}\d{2,3}_\d+_\d+/.test(id)) return "cell";
+  if(f.includes("cell")||/lte|gsm|nr|cdma|hspa/.test(t+a)||/^\d{3}\d{2,3}_\d+_\d+/.test(id)) return "cell";
   if(f.includes("blue")||f.includes("ble")||t==="bt"||t==="ble"||t.includes("bluetooth")) return "bluetooth";
-  return "wifi"}
-function mapRow(row, kind){const lat=Number(row.trilat??row.lat??row.latitude??row.CurrentLatitude); const lng=Number(row.trilong??row.lng??row.longitude??row.CurrentLongitude);
-  if(!Number.isFinite(lat)||!Number.isFinite(lng)) return null; const id=String(row.netid||row.id||row.bssid||row.MAC||`${kind}-${lat}-${lng}`);
-  return {kind,id,name:String(row.ssid||row.name||row.operator||"").trim()|| (kind==="cell"?"Cell site":kind==="bluetooth"?"BT device":""), lat,lng,
-    encryption:String(row.encryption||row.AuthMode||""), channel:row.channel??row.Channel??null, type:String(row.type||row.gentype||(row.attributes||"").split(";")[0]||kind),
-    lastupdt:row.lastupdt||null, lasttime:row.lasttime||null, firsttime:row.firsttime||null, qos:row.qos??null, city:row.city||null, road:row.road||null,
-    housenumber:row.housenumber||null, postalcode:row.postalcode||null, country:row.country||null, region:row.region||null, attributes:row.attributes||null}}
-function parseCSV(text){const lines=text.split(/\r?\n/).filter(l=>l.trim()&&!l.startsWith("WigleWifi")&&!l.startsWith("#")); if(lines.length<2) throw new Error("CSV needs a header and rows");
-  const delim=lines[0].includes("\t")?"\t":","; const split=line=>{const o=[]; let c="",q=false; for(let i=0;i<line.length;i++){const ch=line[i]; if(ch=='"'){if(q&&line[i+1]=='"'){c+='"';i++}else q=!q} else if(ch===delim&&!q){o.push(c);c=""} else c+=ch} o.push(c); return o};
-  const headers=split(lines[0]).map(h=>h.trim()); const rows=[]; for(const line of lines.slice(1)){const cells=split(line); const row={}; headers.forEach((h,i)=>row[h]=cells[i]||""); rows.push(row)} return rows}
-function importText(text, filename){const t=text.replace(/^\uFEFF/,"").trim(); if(!t) throw new Error("Empty file");
+  return "wifi";
+}
+function mapRow(row, kind){
+  const lat=Number(row.trilat??row.lat??row.latitude??row.CurrentLatitude);
+  const lng=Number(row.trilong??row.lng??row.longitude??row.CurrentLongitude);
+  if(!Number.isFinite(lat)||!Number.isFinite(lng)) return null;
+  const id=String(row.netid||row.id||row.bssid||row.MAC||`${kind}-${lat}-${lng}`);
+  return {...row, kind, id, netid:id, ssid:String(row.ssid||row.name||row.operator||"").trim(), trilat:lat, trilong:lng, lat, lng};
+}
+function parseCSV(text){
+  const lines=text.split(/\r?\n/).filter(l=>l.trim()&&!l.startsWith("WigleWifi")&&!l.startsWith("#"));
+  if(lines.length<2) throw new Error("CSV needs a header and rows");
+  const delim=lines[0].includes("\t")?"\t":",";
+  const split=line=>{const o=[]; let c="",q=false; for(let i=0;i<line.length;i++){const ch=line[i]; if(ch=='"'){if(q&&line[i+1]=='"'){c+='"';i++}else q=!q} else if(ch===delim&&!q){o.push(c);c=""} else c+=ch} o.push(c); return o};
+  const headers=split(lines[0]).map(h=>h.trim()); const rows=[];
+  for(const line of lines.slice(1)){const cells=split(line); const row={}; headers.forEach((h,i)=>row[h]=cells[i]||""); rows.push(row)}
+  return rows;
+}
+function importText(text, filename){
+  const t=text.replace(/^\uFEFF/,"").trim(); if(!t) throw new Error("Empty file");
   let rows; if(t.startsWith("{")||t.startsWith("[")){ const p=JSON.parse(t); rows=Array.isArray(p)?p:Array.isArray(p.results)?p.results:Array.isArray(p.networks)?p.networks:[]; }
   else rows=parseCSV(t);
-  const out=[]; for(const row of rows){ if(!row||typeof row!=="object") continue; const m=mapRow(row, inferKind(row, filename)); if(m) out.push(m)} if(!out.length) throw new Error("No mappable radios (need lat, lng, and an ID)."); return out}
-function applyImport(list){const o=origin(); const r=Number(el("radius").value);
-  const lats=list.map(n=>n.lat), lngs=list.map(n=>n.lng); const midLat=(Math.min(...lats)+Math.max(...lats))/2, midLng=(Math.min(...lngs)+Math.max(...lngs))/2;
+  const out=[]; for(const row of rows){ if(!row||typeof row!=="object") continue; const m=mapRow(row, inferKind(row, filename)); if(m) out.push(m)} if(!out.length) throw new Error("No mappable radios (need lat, lng, and an ID)."); return out;
+}
+function applyImport(list){
+  const r=Number(el("radius").value);
+  const lats=list.map(n=>latOf(n)), lngs=list.map(n=>lngOf(n));
+  const midLat=(Math.min(...lats)+Math.max(...lats))/2, midLng=(Math.min(...lngs)+Math.max(...lngs))/2;
   setOrigin(midLat, midLng, false);
   const by={wifi:[],bluetooth:[],cell:[]}; list.forEach(n=>by[n.kind].push(n));
-  Object.keys(by).forEach(k=>{ if(!by[k].length) return; layersOn[k]=true; document.querySelector(`[data-layer="${k}"]`).classList.add("on"); document.querySelector(`[data-layer="${k}"]`).classList.remove("off");
-    const prev=readLayer(midLat,midLng,r,k); const merged=[...(prev?.results||[])]; const seen=new Set(merged.map(x=>x.id)); by[k].forEach(n=>{if(!seen.has(n.id)) merged.push(n)}); saveLayer(midLat,midLng,r,k,merged,"live")});
-  const next=collect(midLat,midLng,r,Object.keys(layersOn).filter(k=>layersOn[k])); networks=next.merged.length?next.merged:list; paint("cached")}
+  Object.keys(by).forEach(k=>{ if(!by[k].length) return; layersOn[k]=true; const btn=document.querySelector(`[data-layer="${k}"]`); btn.classList.add("on"); btn.classList.remove("off");
+    const prev=readLayer(midLat,midLng,r,k); const merged=[...(prev?.results||[])]; const seen=new Set(merged.map(x=>idOf(x))); by[k].forEach(n=>{if(!seen.has(idOf(n))) merged.push(n)}); saveLayer(midLat,midLng,r,k,merged,"live")});
+  const next=collect(midLat,midLng,r,Object.keys(layersOn).filter(k=>layersOn[k])); networks=next.merged.length?next.merged:list; paint("cached");
+}
 function download(name, body, mime){const blob=new Blob([body],{type:mime}); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; a.click(); URL.revokeObjectURL(a.href)}
-function toCSV(list){const h=["kind","name","id","lat","lng","encryption","channel","type","qos","firsttime","lasttime","lastupdt","road","city","region","country"]; const cell=v=>/["',\n]/.test(String(v??""))?`"${String(v).replaceAll('"','""')}"`:String(v??""); return [h.join(","),...list.map(n=>h.map(k=>cell(n[k])).join(","))].join("\n")}
+function toCSV(list){const h=["kind","ssid","name","netid","trilat","trilong","encryption","channel","frequency","type","gentype","qos","firsttime","lasttime","lastupdt","road","city","region","country","postalcode","attributes","capabilities"]; const cell=v=>/["',\n]/.test(String(v??""))?`"${String(v).replaceAll('"','""')}"`:String(v??""); return [h.join(","),...list.map(n=>h.map(k=>cell(n[k]??n.lat??n.lng??"")).join(","))].join("\n")}
+function drawHeat(items){
+  const canvas=el("heat"); canvas.hidden=!heatOn; if(!heatOn||!map) return;
+  const size=map.getSize(); canvas.width=size.x; canvas.height=size.y;
+  const ctx=canvas.getContext("2d"); ctx.clearRect(0,0,canvas.width,canvas.height);
+  items.forEach(n=>{
+    const p=map.latLngToContainerPoint([latOf(n),lngOf(n)]);
+    const g=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,28);
+    const col=colorFor(n);
+    g.addColorStop(0,col+"99"); g.addColorStop(1,col+"00");
+    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(p.x,p.y,28,0,Math.PI*2); ctx.fill();
+  });
+}
+function tickClock(){el("clock").textContent=new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",second:"2-digit"});}
+async function loadScene(){
+  if(SCENE&&SCENE.results) return SCENE;
+  const urls=["./data/scene.json","https://raw.githubusercontent.com/brockmisner/airgrid/main/data/scene.json","https://cdn.jsdelivr.net/gh/brockmisner/airgrid@main/data/scene.json"];
+  for(const url of urls){ try{ const res=await fetch(url,{cache:"no-store"}); if(!res.ok) continue; const data=await res.json(); if(data&&data.results&&data.results.length){ SCENE=data; window.AIRGRID_SCENE=data; return data; } }catch{} }
+  return null;
+}
 
-map=L.map("map").setView([25.784025,-80.136606],16);
-L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",{maxZoom:19,attribution:"OSM CARTO · WiGLE"}).addTo(map);
-originMarker=L.circleMarker([25.784025,-80.136606],{radius:6,color:"#fff",weight:2,fillColor:"#7a9e8a",fillOpacity:1}).addTo(map);
-scanCircle=L.circle([25.784025,-80.136606],{radius:500,color:"#7a9e8a",weight:1,fillOpacity:.05}).addTo(map);
+map=L.map("map",{preferCanvas:true, zoomControl:true}).setView([MIAMI.lat,MIAMI.lng],15);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19, attribution:"© OpenStreetMap · WiGLE"}).addTo(map);
+originMarker=L.circleMarker([MIAMI.lat,MIAMI.lng],{radius:6,color:"#fff",weight:2,fillColor:"#c5ccd4",fillOpacity:1}).addTo(map);
+scanCircle=L.circle([MIAMI.lat,MIAMI.lng],{radius:1500,color:"#c5ccd4",weight:1,fillOpacity:.04}).addTo(map);
 map.on("click",e=>setOrigin(e.latlng.lat,e.latlng.lng,false));
+map.on("moveend zoomend",()=>drawHeat(visible()));
 document.querySelectorAll("[data-layer]").forEach(btn=>btn.addEventListener("click",()=>{const k=btn.dataset.layer; layersOn[k]=!layersOn[k]; btn.classList.toggle("on",layersOn[k]); btn.classList.toggle("off",!layersOn[k]); render()}));
 el("filter").addEventListener("input",render);
-el("list").addEventListener("click",e=>{const row=e.target.closest("[data-id]"); if(!row)return; const n=networks.find(x=>x.id===row.dataset.id); if(n) showDetail(n)});
+el("enc").addEventListener("change",render);
+el("sort").addEventListener("change",render);
+el("list").addEventListener("click",e=>{const row=e.target.closest("[data-id]"); if(!row)return; const n=networks.find(x=>idOf(x)===row.dataset.id); if(n) showDetail(n)});
+el("named").addEventListener("click",e=>{const b=e.target.closest("[data-jump]"); if(!b)return; const n=networks.find(x=>idOf(x)===b.dataset.jump); if(n) showDetail(n)});
 el("preset").addEventListener("change",()=>{const p=el("preset").value.split(",").map(Number); setOrigin(p[0],p[1],true)});
 el("radius").addEventListener("change",()=>scanCircle.setRadius(Number(el("radius").value)*1000));
 el("geo").addEventListener("click",()=>navigator.geolocation.getCurrentPosition(pos=>setOrigin(pos.coords.latitude,pos.coords.longitude,true),()=>setErr("Location denied")));
@@ -242,12 +476,24 @@ el("saveKeys").addEventListener("click",()=>{saveJSON(CREDS,{apiName:el("apiName
 el("clearKeys").addEventListener("click",()=>{localStorage.removeItem(CREDS); el("keyModal").classList.remove("open")});
 el("uploadBtn").addEventListener("click",()=>el("file").click());
 el("file").addEventListener("change",async ev=>{const f=ev.target.files?.[0]; ev.target.value=""; if(!f)return; try{applyImport(importText(await f.text(), f.name))}catch(err){setErr(err.message)}});
-el("jsonBtn").addEventListener("click",()=>download("airgrid.json", JSON.stringify({success:true,source:"airgrid",origin:origin(),results:visible()},null,2),"application/json"));
-el("csvBtn").addEventListener("click",()=>download("airgrid.csv", toCSV(visible()), "text/csv"));
+el("jsonBtn").addEventListener("click",()=>download("airgrid-south-beach.json", JSON.stringify({success:true,source:"airgrid",origin:origin(),radiusKm:Number(el("radius").value),results:visible()},null,2),"application/json"));
+el("csvBtn").addEventListener("click",()=>download("airgrid-south-beach.csv", toCSV(visible()), "text/csv"));
+el("togHeat").addEventListener("click",()=>{heatOn=!heatOn; el("togHeat").classList.toggle("on",heatOn); el("togHeat").classList.toggle("off",!heatOn); drawHeat(visible())});
+el("togRadar").addEventListener("click",()=>{radarOn=!radarOn; el("radar").hidden=!radarOn; el("togRadar").classList.toggle("on",radarOn); el("togRadar").classList.toggle("off",!radarOn)});
+el("togCov").addEventListener("click",()=>{covOn=!covOn; el("togCov").classList.toggle("on",covOn); el("togCov").classList.toggle("off",!covOn); render()});
+el("dismissBrief").addEventListener("click",()=>{el("brief").style.opacity="0"; setTimeout(()=>el("brief").remove(),400)});
+tickClock(); setInterval(tickClock,1000);
 (async function boot(){
-  await loadBundledCells();
-  saveLayer(25.784025,-80.136606,0.5,"cell",BUNDLED_CELLS,"live");
-  networks=BUNDLED_CELLS.slice(); paint("cached"); render();
+  await loadScene();
+  const r=1.5;
+  if(SCENE&&SCENE.results){
+    ["wifi","bluetooth","cell"].forEach(k=>saveLayer(MIAMI.lat,MIAMI.lng,r,k,sceneLayer(k),"live"));
+    networks=SCENE.results.slice();
+    paint("cached");
+  } else {
+    el("stats").textContent="Could not load the South Beach dump. Upload the WiGLE JSON files.";
+  }
+  setTimeout(()=>{ if(el("brief")){ el("brief").style.opacity="0"; setTimeout(()=>el("brief")&&el("brief").remove(),400);} }, 5200);
 })();
 </script>
 </body>

@@ -1,10 +1,10 @@
 # Airgrid
 
-Map Wi-Fi, Bluetooth, and cell observations from WiGLE.
+South Beach RF survey — Wi-Fi, Bluetooth, and cell towers from WiGLE, mapped in the browser.
 
-- Opens on Miami Beach with 72 saved cell towers (no API quota).
-- **Upload** a WiGLE JSON/CSV from `/api/v2/network/search`, `/bluetooth/search`, or `/cell/search`.
-- **JSON** / **CSV** export the current list.
-- **Scan** reuses saved layers. **Live refresh** spends daily WiGLE searches (often 3/day on new accounts).
+- 100 Wi-Fi · 94 Bluetooth · 163 cell (357 radios) bundled from your WiGLE dumps
+- Click any pin or list row for the full dossier
+- Upload JSON/CSV from WiGLE, export JSON/CSV
+- Live search uses 1 daily query per layer (Wi-Fi / BT / cell)
 
-API name + token: https://wigle.net/account (not the encoded blob).
+Open `index.html` or deploy the folder to Vercel / GitHub Pages.
