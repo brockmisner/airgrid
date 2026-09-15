@@ -98,6 +98,25 @@
     .brief h2{margin:0;font-size:16px;font-weight:600}
     .brief p{margin:0;font-size:13px;color:var(--muted);line-height:1.5}
     .err{color:#c45c4a;font-size:12px;padding:8px 12px;border-bottom:1px solid var(--border)}
+    .dash{position:absolute;left:12px;right:12px;bottom:16px;z-index:520;display:none;grid-template-columns:auto 1fr auto;gap:12px;align-items:end;pointer-events:none}
+    .app.mode-drive .hud{display:none}
+    .app.mode-drive .dash{display:grid}
+    .dash .speed{background:color-mix(in oklab,var(--bg) 78%,transparent);border:1px solid var(--border);border-radius:var(--radius-md);padding:8px 14px 10px;min-width:7.5rem}
+    .dash .speed b{display:block;font-family:var(--font-mono);font-size:42px;line-height:1;letter-spacing:-.04em;color:var(--bt);text-shadow:0 0 18px color-mix(in oklab,var(--bt) 55%,transparent)}
+    .dash .speed span{font-size:10px;letter-spacing:.18em;color:var(--subtle)}
+    .dash .mid{display:grid;gap:6px}
+    .dash-bar{height:6px;border-radius:99px;background:var(--border);overflow:hidden}
+    .dash-bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#2fd3c0,#f0b429);box-shadow:0 0 12px #2fd3c0;transition:width .12s linear}
+    .dash-turn{font-size:14px;font-weight:600;color:var(--fg);text-shadow:0 1px 8px #000}
+    .dash-sub{font-family:var(--font-mono);font-size:11px;color:var(--muted)}
+    .count{position:absolute;inset:0;z-index:700;display:none;place-items:center;pointer-events:none;font-size:96px;font-weight:600;letter-spacing:-.04em;color:var(--bt);text-shadow:0 0 40px #2fd3c0}
+    .count.on{display:grid}
+    .car-wrap{background:transparent!important;border:none!important}
+    .car{width:28px;height:28px;display:grid;place-items:center;transform:rotate(var(--h,0deg));filter:drop-shadow(0 0 10px #2fd3c0)}
+    .car i{width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:18px solid #2fd3c0}
+    .car b{position:absolute;width:10px;height:10px;border-radius:99px;background:#fff;opacity:.85;transform:translateY(4px);box-shadow:0 0 10px #fff}
+    .app.mode-drive .leaflet-container{cursor:crosshair}
+    @media (prefers-reduced-motion:reduce){.radar-sweep,.btn,.dash-bar i{animation:none;transition:none}}
     .modal{position:fixed;inset:0;background:rgba(0,0,0,.62);display:none;align-items:center;justify-content:center;z-index:5000;padding:16px}
     .modal.open{display:flex}
     .card{width:min(560px,100%);max-height:86vh;overflow:auto;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;display:grid;gap:12px}
@@ -117,7 +136,7 @@
   </style>
 </head>
 <body>
-<div class="app" data-build="southbeach-357-drive2">
+<div class="app" data-build="southbeach-drive-fun">
   <header>
     <div class="brand">
       <div class="mark" aria-hidden="true">
@@ -239,8 +258,9 @@
         <div class="field"><label for="driveDest">Dest lat, lng</label><input id="driveDest" value="25.78210, -80.13658" /></div>
         <div class="field"><label for="driveScale">Time scale</label>
           <select id="driveScale">
-            <option value="1">1× realtime</option>
-            <option value="4">4× faster</option>
+            <option value="1">1× cruise</option>
+            <option value="4" selected>4× city</option>
+            <option value="8">8× sport</option>
           </select>
         </div>
         <label class="chk"><input id="driveArm" type="checkbox" /> Arm device (live DuoPlus)</label>
@@ -275,6 +295,16 @@
           </div>
         </div>
       </div>
+      <div class="dash" id="dash">
+        <div class="speed"><b id="dashMph">00</b><span>MPH</span></div>
+        <div class="mid">
+          <div class="dash-bar"><i id="dashBar"></i></div>
+          <div class="dash-turn" id="dashTurn">Plan a route, then drive</div>
+          <div class="dash-sub" id="dashSub">Click map for origin → dest</div>
+        </div>
+        <div class="speed"><b id="dashEta">—</b><span>ETA</span></div>
+      </div>
+      <div class="count" id="count"></div>
       <div class="brief" id="brief">
         <div class="card">
           <div class="tag cell">South Beach</div>
@@ -560,7 +590,7 @@ el("drivePresets").addEventListener("click",e=>{
   el("drivePickHint").textContent="Next click sets origin";
 });
 el("driveStart").addEventListener("click",()=>startDrive().catch(e=>{setDriveErr(e.message); el("driveStart").hidden=false; el("driveCancel").hidden=true}));
-el("driveCancel").addEventListener("click",()=>{driveAbort.go=false; setDrivePhase("cancelled"); el("driveStart").hidden=false; el("driveCancel").hidden=true});
+el("driveCancel").addEventListener("click",()=>{driveAbort.go=false; setDrivePhase("cancelled"); el("driveStart").hidden=false; el("driveCancel").hidden=true; hum(false); el("count").classList.remove("on")});
 const savedDuo=localStorage.getItem("airgrid.duoPlusKey")||"";
 if(savedDuo) el("driveKey").value=savedDuo;
 
@@ -592,17 +622,57 @@ function havM(a,b){return haversine(a.lat,a.lng,b.lat,b.lng)*1000}
 function gpsPayload(id,p){
   return {images:[{image_id:id,gps:{type:2,latitude:String(p.lat),longitude:String(p.lng)}}]};
 }
-function drawDrive(plan, pos){
+function bearing(a,b){
+  const y=Math.sin((b.lng-a.lng)*Math.PI/180)*Math.cos(b.lat*Math.PI/180);
+  const x=Math.cos(a.lat*Math.PI/180)*Math.sin(b.lat*Math.PI/180)-Math.sin(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.cos((b.lng-a.lng)*Math.PI/180);
+  return (Math.atan2(y,x)*180/Math.PI+360)%360;
+}
+function sampleRoute(points,dts,t){
+  let acc=0;
+  for(let i=0;i<dts.length;i++){
+    const dt=Math.max(dts[i]||0,1e-4);
+    if(acc+dt>=t){
+      const u=(t-acc)/dt, a=points[i], b=points[i+1];
+      return {lat:a.lat+(b.lat-a.lat)*u, lng:a.lng+(b.lng-a.lng)*u, heading:bearing(a,b), i, u, mph:(havM(a,b)/dt)*2.23694};
+    }
+    acc+=dt;
+  }
+  const last=points[points.length-1], prev=points[points.length-2]||last;
+  return {lat:last.lat,lng:last.lng,heading:bearing(prev,last),i:points.length-2,u:1,mph:0};
+}
+function carIcon(h){
+  return L.divIcon({className:"car-wrap",iconSize:[28,28],iconAnchor:[14,14],html:`<div class="car" style="--h:${h}deg"><i></i><b></b></div>`});
+}
+function drawDrive(plan, pos, heading){
   if(driveLine){driveLine.remove(); driveLine=null}
   if(driveCar){driveCar.remove(); driveCar=null}
   driveMarks.forEach(m=>m.remove()); driveMarks=[];
   if(!plan) return;
-  driveLine=L.polyline(plan.points.map(p=>[p.lat,p.lng]),{color:"#2fd3c0",weight:4,opacity:.85}).addTo(map);
+  driveLine=L.polyline(plan.points.map(p=>[p.lat,p.lng]),{color:"#2fd3c0",weight:5,opacity:.35}).addTo(map);
+  driveMarks.push(L.polyline([],{color:"#2fd3c0",weight:6,opacity:.95}).addTo(map));
   driveMarks.push(L.circleMarker([plan.origin.lat,plan.origin.lng],{radius:6,color:"#fff",weight:2,fillColor:"#2fd3c0",fillOpacity:1}).addTo(map));
   driveMarks.push(L.circleMarker([plan.dest.lat,plan.dest.lng],{radius:6,color:"#fff",weight:2,fillColor:"#f0b429",fillOpacity:1}).addTo(map));
   const here=pos||plan.origin;
-  driveCar=L.circleMarker([here.lat,here.lng],{radius:9,color:"#fff",weight:2,fillColor:"#2fd3c0",fillOpacity:1}).addTo(map);
-  map.fitBounds(driveLine.getBounds(),{padding:[40,40],maxZoom:17});
+  driveCar=L.marker([here.lat,here.lng],{icon:carIcon(heading||0),zIndexOffset:900}).addTo(map);
+  map.fitBounds(driveLine.getBounds(),{padding:[48,48],maxZoom:17});
+}
+function paintCar(pos, heading, idx){
+  if(!drivePlan) return;
+  if(driveCar){ driveCar.setLatLng([pos.lat,pos.lng]); driveCar.setIcon(carIcon(heading||0)); }
+  const traveled=drivePlan.points.slice(0, Math.max(1,idx+1)).concat([pos]);
+  if(driveMarks[0] && driveMarks[0].setLatLngs) driveMarks[0].setLatLngs(traveled.map(p=>[p.lat,p.lng]));
+  map.panTo([pos.lat,pos.lng], {animate:true, duration:.25});
+}
+function nextTurn(plan, pos){
+  const steps=plan.steps||[];
+  if(!steps.length) return "Cruise the grid";
+  let best=steps[steps.length-1], bestD=1e9;
+  for(const s of steps){
+    const d=havM(pos,{lat:s.lat,lng:s.lng});
+    if(d<bestD && d>18){ bestD=d; best=s; }
+  }
+  const how=best.modifier?best.modifier.replace(/_/g," "):best.type||"continue";
+  return `${how} ${best.name||""}`.trim();
 }
 function buildTicks(points, dts, scale){
   const ticks=[{i:0,point:points[0],waitMs:0}];
@@ -624,7 +694,7 @@ async function planDrive(){
   const origin=parseLL(el("driveOrigin").value), dest=parseLL(el("driveDest").value);
   if(!origin||!dest) throw new Error("Origin and dest need lat, lng");
   setDrivePhase("routing");
-  const url=`https://router.project-osrm.org/route/v1/driving/${origin.lng},${origin.lat};${dest.lng},${dest.lat}?overview=full&geometries=polyline&annotations=duration,distance`;
+  const url=`https://router.project-osrm.org/route/v1/driving/${origin.lng},${origin.lat};${dest.lng},${dest.lat}?overview=full&geometries=polyline&annotations=duration,distance&steps=true`;
   const res=await fetch(url);
   const body=await res.json();
   if(body.code!=="Ok"||!body.routes?.[0]) throw new Error("No driving route between those points");
@@ -639,15 +709,44 @@ async function planDrive(){
     dts=dists.map(d=>d/sum*r.duration);
   }
   const scale=Number(el("driveScale").value)||1;
-  drivePlan={origin,dest,points,ticks:buildTicks(points,dts,scale),distanceM:r.distance,durationSec:r.duration};
+  const steps=(r.legs||[]).flatMap(leg=>(leg.steps||[]).map(s=>({
+    name:s.name||"", type:s.maneuver?.type||"", modifier:s.maneuver?.modifier||"",
+    lat:s.maneuver?.location?.[1], lng:s.maneuver?.location?.[0]
+  }))).filter(s=>Number.isFinite(s.lat));
+  drivePlan={origin,dest,points,dts,steps,ticks:buildTicks(points,dts,scale),distanceM:r.distance,durationSec:r.duration};
   el("driveDist").textContent=drivePlan.distanceM<1000?Math.round(drivePlan.distanceM)+" m":(drivePlan.distanceM/1000).toFixed(2)+" km";
   el("driveTicks").textContent=String(drivePlan.ticks.length);
   el("drivePayload").textContent=JSON.stringify(gpsPayload(driveImageId()||"IMAGE",origin),null,2);
-  drawDrive(drivePlan, origin);
+  el("dashTurn").textContent=nextTurn(drivePlan, origin);
+  el("dashSub").textContent=`${Math.round(r.duration)}s · ${Math.round(r.distance)} m · ${drivePlan.ticks.length} GPS ticks`;
+  drawDrive(drivePlan, origin, bearing(origin, points[1]||dest));
   setDrivePhase("idle");
   return drivePlan;
 }
 function sleep(ms){return new Promise(r=>{const t0=Date.now(); const id=setInterval(()=>{ if(!driveAbort.go||Date.now()-t0>=ms){clearInterval(id); r()}},80)})}
+async function countdown(){
+  const box=el("count"); box.classList.add("on");
+  for(const n of ["3","2","1","GO"]){
+    box.textContent=n;
+    await sleep(n==="GO"?420:700);
+    if(!driveAbort.go) break;
+  }
+  box.classList.remove("on");
+}
+let driveHum=null;
+function hum(on, mph){
+  try{
+    if(!on){ if(driveHum){ driveHum.osc.stop(); driveHum=null } return }
+    const ctx=driveHum?.ctx || new (window.AudioContext||window.webkitAudioContext)();
+    if(!driveHum){
+      const osc=ctx.createOscillator(); const g=ctx.createGain();
+      osc.type="sawtooth"; osc.frequency.value=48; g.gain.value=0.018;
+      osc.connect(g).connect(ctx.destination); osc.start();
+      driveHum={ctx,osc,g};
+    }
+    driveHum.osc.frequency.setTargetAtTime(42+Math.min(40,mph||0)*0.7, driveHum.ctx.currentTime, 0.12);
+  }catch{}
+}
 async function pushGps(pt){
   const id=driveImageId();
   if(!id) throw new Error("Pick an image_id");
@@ -670,24 +769,50 @@ async function pushGps(pt){
 async function startDrive(){
   const trip=drivePlan||await planDrive();
   if(!trip) return;
+  const scale=Number(el("driveScale").value)||1;
   driveAbort.go=true;
   el("driveStart").hidden=true; el("driveCancel").hidden=false;
   setDrivePhase("origin_set");
-  if(driveCar) driveCar.setLatLng([trip.origin.lat,trip.origin.lng]);
+  await countdown();
+  if(!driveAbort.go) return;
   await pushGps(trip.origin);
-  await sleep(2500);
+  await sleep(Math.min(1800, 2500/scale));
   if(!driveAbort.go) return;
   setDrivePhase("moving");
+  const t0=performance.now();
+  const play=trip.durationSec/scale;
+  let vis=0;
+  const loop=()=>{
+    if(!driveAbort.go) return;
+    const u=Math.min(1,(performance.now()-t0)/1000/play);
+    const samp=sampleRoute(trip.points, trip.dts, u*trip.durationSec);
+    paintCar(samp, samp.heading, samp.i);
+    el("dashMph").textContent=String(Math.max(0, Math.round(samp.mph))).padStart(2,"0");
+    el("dashBar").style.width=(u*100).toFixed(1)+"%";
+    const left=Math.max(0, trip.durationSec*(1-u)/scale);
+    el("dashEta").textContent=left<60?Math.round(left)+"s":Math.ceil(left/60)+"m";
+    el("dashTurn").textContent=nextTurn(trip, samp);
+    hum(true, samp.mph);
+    vis=requestAnimationFrame(loop);
+    if(u>=1) cancelAnimationFrame(vis);
+  };
+  vis=requestAnimationFrame(loop);
   for(let i=1;i<trip.ticks.length;i++){
     const step=trip.ticks[i];
     await sleep(step.waitMs);
-    if(!driveAbort.go) return;
-    if(driveCar) driveCar.setLatLng([step.point.lat,step.point.lng]);
-    map.panTo([step.point.lat,step.point.lng]);
+    if(!driveAbort.go) break;
     el("driveTicks").textContent=`${i}/${trip.ticks.length-1}`;
     await pushGps(step.point);
   }
-  setDrivePhase("arrived");
+  cancelAnimationFrame(vis);
+  hum(false);
+  if(driveAbort.go){
+    setDrivePhase("arrived");
+    el("dashTurn").textContent="Arrived";
+    el("dashMph").textContent="00";
+    el("count").classList.add("on"); el("count").textContent="ARRIVED";
+    setTimeout(()=>el("count").classList.remove("on"), 1200);
+  }
   el("driveStart").hidden=false; el("driveCancel").hidden=true;
 }
 
