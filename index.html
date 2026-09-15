@@ -136,7 +136,7 @@
   </style>
 </head>
 <body>
-<div class="app" data-build="southbeach-drive-fun">
+<div class="app" data-build="southbeach-drive-live">
   <header>
     <div class="brand">
       <div class="mark" aria-hidden="true">
@@ -263,7 +263,7 @@
             <option value="8">8× sport</option>
           </select>
         </div>
-        <label class="chk"><input id="driveArm" type="checkbox" /> Arm device (live DuoPlus)</label>
+        <label class="chk"><input id="driveArm" type="checkbox" checked /> Arm device (required to move the phone)</label>
         <div class="field"><label for="driveKey">DuoPlus API key</label><input id="driveKey" type="password" placeholder="Only if Arm is on" /></div>
         <div class="row">
           <button class="btn" id="drivePlan" type="button">Plan route</button>
@@ -620,7 +620,7 @@ function decodePoly(enc){
 }
 function havM(a,b){return haversine(a.lat,a.lng,b.lat,b.lng)*1000}
 function gpsPayload(id,p){
-  return {images:[{image_id:id,gps:{type:2,latitude:String(p.lat),longitude:String(p.lng)}}]};
+  return {images:[{image_id:id,gps:{type:2,latitude:Number(p.lat.toFixed(7)),longitude:Number(p.lng.toFixed(7))}}]};
 }
 function bearing(a,b){
   const y=Math.sin((b.lng-a.lng)*Math.PI/180)*Math.cos(b.lat*Math.PI/180);
@@ -752,27 +752,68 @@ async function pushGps(pt){
   if(!id) throw new Error("Pick an image_id");
   const body=gpsPayload(id,pt);
   el("drivePayload").textContent=JSON.stringify(body,null,2);
-  if(!el("driveArm").checked){ el("driveAck").textContent="simulated"; return }
+  if(!el("driveArm").checked) throw new Error("Arm device is off — the map moves, the phone does not.");
   const key=el("driveKey").value.trim();
-  if(!key) throw new Error("Paste DuoPlus API key or uncheck Arm");
+  if(!key) throw new Error("Paste DuoPlus API key");
   localStorage.setItem("airgrid.duoPlusKey", key);
-  const res=await fetch("https://openapi.duoplus.net/api/v1/cloudPhone/update",{
-    method:"POST",
-    headers:{"Content-Type":"application/json","DuoPlus-API-Key":key,Lang:"en"},
-    body:JSON.stringify(body)
-  });
-  let json=null; try{json=await res.json()}catch{throw new Error("DuoPlus non-JSON (often CORS on this static host)")}
-  const ok=json.code===200 && Array.isArray(json.data?.success) && json.data.success.includes(id) && !(json.data.fail||[]).includes(id);
-  if(!ok) throw new Error(json.message||"DuoPlus rejected GPS");
+  let res;
+  try{
+    res=await fetch("https://openapi.duoplus.net/api/v1/cloudPhone/update",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","DuoPlus-API-Key":key,Lang:"en"},
+      body:JSON.stringify(body)
+    });
+  }catch{
+    throw new Error("This GitHub page cannot reach DuoPlus (browser CORS). Open the Grok Airgrid preview, Arm device, then Start drive.");
+  }
+  let json=null; try{json=await res.json()}catch{throw new Error("DuoPlus non-JSON "+res.status)}
+  const ok=json.code===200 && Array.isArray(json.data?.success) && json.data.success.map(String).includes(id) && !(json.data.fail||[]).map(String).includes(id);
+  if(!ok) throw new Error(json.message||JSON.stringify(json).slice(0,180));
   el("driveAck").textContent="accepted";
+}
+async function ensureOn(key,id){
+  let res;
+  try{
+    res=await fetch("https://openapi.duoplus.net/api/v1/cloudPhone/status",{
+      method:"POST", headers:{"Content-Type":"application/json","DuoPlus-API-Key":key,Lang:"en"},
+      body:JSON.stringify({image_ids:[id]})
+    });
+  }catch{
+    throw new Error("This GitHub page cannot reach DuoPlus (browser CORS). Use the Grok Airgrid preview to move the phone.");
+  }
+  const json=await res.json();
+  const row=(json.data?.list||[])[0];
+  const st=row?.status;
+  el("dashTurn").textContent="Phone status "+st;
+  if(st===1) return;
+  if(st===3||st===4) throw new Error("Phone expired");
+  await fetch("https://openapi.duoplus.net/api/v1/cloudPhone/powerOn",{
+    method:"POST", headers:{"Content-Type":"application/json","DuoPlus-API-Key":key,Lang:"en"},
+    body:JSON.stringify({image_ids:[id]})
+  });
+  for(let i=0;i<20;i++){
+    await sleep(2000);
+    const s=await fetch("https://openapi.duoplus.net/api/v1/cloudPhone/status",{
+      method:"POST", headers:{"Content-Type":"application/json","DuoPlus-API-Key":key,Lang:"en"},
+      body:JSON.stringify({image_ids:[id]})
+    }).then(r=>r.json());
+    const now=(s.data?.list||[])[0]?.status;
+    el("dashTurn").textContent="Waiting ON… "+now;
+    if(now===1) return;
+  }
+  throw new Error("Phone never reached ON");
 }
 async function startDrive(){
   const trip=drivePlan||await planDrive();
   if(!trip) return;
+  if(!el("driveArm").checked || !el("driveKey").value.trim()){
+    throw new Error("Check Arm device and paste the DuoPlus API key or the phone will not move.");
+  }
   const scale=Number(el("driveScale").value)||1;
   driveAbort.go=true;
   el("driveStart").hidden=true; el("driveCancel").hidden=false;
   setDrivePhase("origin_set");
+  await ensureOn(el("driveKey").value.trim(), driveImageId());
   await countdown();
   if(!driveAbort.go) return;
   await pushGps(trip.origin);
