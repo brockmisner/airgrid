@@ -38,6 +38,17 @@
     .btn.primary:hover{filter:brightness(1.06)}
     .btn.on{background:var(--accent);color:var(--accent-fg);border-color:transparent}
     .btn.off{opacity:.45}
+    .drive-panel{display:none;flex-direction:column;gap:10px;padding:12px 16px;overflow:auto;min-height:0}
+    .app.mode-drive #toolbar{display:none}
+    .app.mode-drive #surveyAside{display:none}
+    .app.mode-drive .drive-panel{display:flex}
+    .drive-panel p{margin:0;font-size:12px;line-height:1.5;color:var(--muted)}
+    .drive-panel pre{margin:0;padding:10px;background:var(--elevated);border:1px solid var(--border);border-radius:var(--radius-xs);font-family:var(--font-mono);font-size:10px;color:var(--muted);overflow:auto;max-height:180px;white-space:pre-wrap}
+    .drive-meta{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--radius-xs);overflow:hidden}
+    .drive-meta div{background:var(--bg);padding:8px 10px;font-size:12px}
+    .drive-meta b{display:block;font-family:var(--font-mono);font-weight:500;color:var(--fg)}
+    .drive-meta span{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--subtle)}
+    .chk{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--muted);min-height:40px}
     .banner{padding:8px 16px;border-bottom:1px solid var(--border);background:color-mix(in oklab,var(--elevated) 70%,transparent);font-size:12px;color:var(--muted)}
     form.toolbar{display:flex;flex-wrap:wrap;gap:12px;align-items:end;padding:12px 16px;border-bottom:1px solid var(--border)}
     .field{display:grid;gap:6px}
@@ -106,7 +117,7 @@
   </style>
 </head>
 <body>
-<div class="app" data-build="southbeach-357">
+<div class="app" data-build="southbeach-357-drive">
   <header>
     <div class="brand">
       <div class="mark" aria-hidden="true">
@@ -119,6 +130,8 @@
       <div class="clock" id="clock"></div>
     </div>
     <div class="row">
+      <button class="btn on" id="modeSurvey" type="button">Survey</button>
+      <button class="btn" id="modeDrive" type="button">Drive</button>
       <button class="btn on" data-layer="wifi" type="button">Wi-Fi</button>
       <button class="btn on" data-layer="bluetooth" type="button">BT</button>
       <button class="btn on" data-layer="cell" type="button">Cell</button>
@@ -169,6 +182,7 @@
   </form>
   <div class="stage">
     <aside>
+      <div id="surveyAside">
       <div class="stats">
         <div class="stat"><b id="nAll">0</b><span>Mapped</span></div>
         <div class="stat"><b id="nWifi">0</b><span>Wi-Fi</span></div>
@@ -202,6 +216,44 @@
         </div>
       </details>
       <div class="list" id="list"></div>
+      </div>
+      <div class="drive-panel" id="drivePanel">
+        <div>
+          <strong>Drive</strong>
+          <p>GPS-only DuoPlus ticks along a road line. No Wi-Fi, SIM, cell, or Bluetooth on the ticker. Default: 9th → 11th, Miami Beach.</p>
+        </div>
+        <div class="field"><label for="driveImage">Device image_id</label>
+          <select id="driveImage">
+            <option value="N5YK6">N5YK6</option>
+            <option value="dEW12">dEW12 Flamingo Pixel 6</option>
+            <option value="custom">Custom</option>
+          </select>
+        </div>
+        <div class="field" id="driveCustomWrap" hidden><label for="driveCustom">Custom image_id</label><input id="driveCustom" placeholder="image_id" /></div>
+        <div class="field"><label for="driveOrigin">Origin lat, lng</label><input id="driveOrigin" value="25.77936, -80.13670" /></div>
+        <div class="field"><label for="driveDest">Dest lat, lng</label><input id="driveDest" value="25.78210, -80.13658" /></div>
+        <div class="field"><label for="driveScale">Time scale</label>
+          <select id="driveScale">
+            <option value="1">1× realtime</option>
+            <option value="4">4× faster</option>
+          </select>
+        </div>
+        <label class="chk"><input id="driveArm" type="checkbox" /> Arm device (live DuoPlus)</label>
+        <div class="field"><label for="driveKey">DuoPlus API key</label><input id="driveKey" type="password" placeholder="Only if Arm is on" /></div>
+        <div class="row">
+          <button class="btn" id="drivePlan" type="button">Plan route</button>
+          <button class="btn primary" id="driveStart" type="button">Start drive</button>
+          <button class="btn" id="driveCancel" type="button" hidden>Cancel</button>
+        </div>
+        <div class="err" id="driveErr" hidden></div>
+        <div class="drive-meta">
+          <div><span>Phase</span><b id="drivePhase">idle</b></div>
+          <div><span>Ack</span><b id="driveAck">—</b></div>
+          <div><span>Distance</span><b id="driveDist">—</b></div>
+          <div><span>Ticks</span><b id="driveTicks">—</b></div>
+        </div>
+        <pre id="drivePayload">GPS payload appears here. Keys: image_id + gps.type 2 only.</pre>
+      </div>
     </aside>
     <section class="mapwrap">
       <div id="map"></div>
@@ -246,6 +298,7 @@ const layersOn={wifi:true,bluetooth:true,cell:true};
 let SCENE=window.AIRGRID_SCENE||null;
 let networks=[], selected=null, markers=[], cov=[], map, originMarker, scanCircle;
 let heatOn=true, radarOn=true, covOn=true;
+let driveLine=null, driveCar=null, driveMarks=[], driveAbort={go:false}, drivePlan=null;
 const el=id=>document.getElementById(id);
 const ESCMAP={"&":"&"+"amp;","<":"&"+"lt;",">":"&"+"gt;",'"':"&"+"quot;","'":"&#39;"};
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>ESCMAP[c]);
@@ -482,6 +535,141 @@ el("togHeat").addEventListener("click",()=>{heatOn=!heatOn; el("togHeat").classL
 el("togRadar").addEventListener("click",()=>{radarOn=!radarOn; el("radar").hidden=!radarOn; el("togRadar").classList.toggle("on",radarOn); el("togRadar").classList.toggle("off",!radarOn)});
 el("togCov").addEventListener("click",()=>{covOn=!covOn; el("togCov").classList.toggle("on",covOn); el("togCov").classList.toggle("off",!covOn); render()});
 el("dismissBrief").addEventListener("click",()=>{el("brief").style.opacity="0"; setTimeout(()=>el("brief").remove(),400)});
+el("modeSurvey").addEventListener("click",()=>setMode("survey"));
+el("modeDrive").addEventListener("click",()=>setMode("drive"));
+el("driveImage").addEventListener("change",()=>{el("driveCustomWrap").hidden=el("driveImage").value!=="custom"});
+el("drivePlan").addEventListener("click",()=>planDrive().catch(e=>setDriveErr(e.message)));
+el("driveStart").addEventListener("click",()=>startDrive().catch(e=>{setDriveErr(e.message); el("driveStart").hidden=false; el("driveCancel").hidden=true}));
+el("driveCancel").addEventListener("click",()=>{driveAbort.go=false; setDrivePhase("cancelled"); el("driveStart").hidden=false; el("driveCancel").hidden=true});
+const savedDuo=localStorage.getItem("airgrid.duoPlusKey")||"";
+if(savedDuo) el("driveKey").value=savedDuo;
+
+function setMode(mode){
+  document.querySelector(".app").classList.toggle("mode-drive", mode==="drive");
+  el("modeSurvey").classList.toggle("on", mode==="survey");
+  el("modeDrive").classList.toggle("on", mode==="drive");
+  el("stats").textContent=mode==="drive"
+    ? "Drive: GPS-only ticks along a road polyline. Arm device is optional."
+    : el("stats").dataset.base||el("stats").textContent;
+}
+function parseLL(raw){
+  const p=String(raw||"").trim().split(/[,\s]+/).filter(Boolean).map(Number);
+  if(p.length<2||!Number.isFinite(p[0])||!Number.isFinite(p[1])) return null;
+  return {lat:p[0], lng:p[1]};
+}
+function driveImageId(){
+  return el("driveImage").value==="custom" ? el("driveCustom").value.trim() : el("driveImage").value;
+}
+function setDriveErr(m){el("driveErr").hidden=!m; el("driveErr").textContent=m||""}
+function setDrivePhase(p){el("drivePhase").textContent=p}
+function decodePoly(enc){
+  const pts=[]; let i=0,lat=0,lng=0;
+  const chunk=()=>{let r=0,s=0,b; do{b=enc.charCodeAt(i++)-63; r|=(b&31)<<s; s+=5}while(b>=32); return r&1?~(r>>1):r>>1};
+  while(i<enc.length){lat+=chunk(); lng+=chunk(); pts.push({lat:lat/1e5,lng:lng/1e5})}
+  return pts;
+}
+function havM(a,b){return haversine(a.lat,a.lng,b.lat,b.lng)*1000}
+function gpsPayload(id,p){
+  return {images:[{image_id:id,gps:{type:2,latitude:String(p.lat),longitude:String(p.lng)}}]};
+}
+function drawDrive(plan, pos){
+  if(driveLine){driveLine.remove(); driveLine=null}
+  if(driveCar){driveCar.remove(); driveCar=null}
+  driveMarks.forEach(m=>m.remove()); driveMarks=[];
+  if(!plan) return;
+  driveLine=L.polyline(plan.points.map(p=>[p.lat,p.lng]),{color:"#2fd3c0",weight:4,opacity:.85}).addTo(map);
+  driveMarks.push(L.circleMarker([plan.origin.lat,plan.origin.lng],{radius:6,color:"#fff",weight:2,fillColor:"#2fd3c0",fillOpacity:1}).addTo(map));
+  driveMarks.push(L.circleMarker([plan.dest.lat,plan.dest.lng],{radius:6,color:"#fff",weight:2,fillColor:"#f0b429",fillOpacity:1}).addTo(map));
+  const here=pos||plan.origin;
+  driveCar=L.circleMarker([here.lat,here.lng],{radius:9,color:"#fff",weight:2,fillColor:"#2fd3c0",fillOpacity:1}).addTo(map);
+  map.fitBounds(driveLine.getBounds(),{padding:[40,40],maxZoom:17});
+}
+function buildTicks(points, dts, scale){
+  const ticks=[{i:0,point:points[0],waitMs:0}];
+  let acc=0, last=points[0];
+  for(let i=0;i<points.length-1;i++){
+    const nxt=points[i+1];
+    acc += Math.max(0, dts[i]||(havM(last,nxt)/13.4));
+    last=nxt;
+    const lastPt=i===points.length-2;
+    if(acc>=1.1 || lastPt){
+      ticks.push({i:ticks.length,point:nxt,waitMs:Math.max(1100, Math.round(acc*1000/scale))});
+      acc=0;
+    }
+  }
+  return ticks;
+}
+async function planDrive(){
+  setDriveErr("");
+  const origin=parseLL(el("driveOrigin").value), dest=parseLL(el("driveDest").value);
+  if(!origin||!dest) throw new Error("Origin and dest need lat, lng");
+  setDrivePhase("routing");
+  const url=`https://router.project-osrm.org/route/v1/driving/${origin.lng},${origin.lat};${dest.lng},${dest.lat}?overview=full&geometries=polyline&annotations=duration,distance`;
+  const res=await fetch(url);
+  const body=await res.json();
+  if(body.code!=="Ok"||!body.routes?.[0]) throw new Error("No driving route between those points");
+  const r=body.routes[0];
+  const points=decodePoly(r.geometry);
+  if(points.length<2) throw new Error("Empty geometry");
+  const n=points.length-1;
+  let dts=r.legs?.[0]?.annotation?.duration;
+  if(!dts||dts.length!==n){
+    const dists=points.slice(0,-1).map((p,i)=>havM(p,points[i+1]));
+    const sum=dists.reduce((a,b)=>a+b,0)||1;
+    dts=dists.map(d=>d/sum*r.duration);
+  }
+  const scale=Number(el("driveScale").value)||1;
+  drivePlan={origin,dest,points,ticks:buildTicks(points,dts,scale),distanceM:r.distance,durationSec:r.duration};
+  el("driveDist").textContent=drivePlan.distanceM<1000?Math.round(drivePlan.distanceM)+" m":(drivePlan.distanceM/1000).toFixed(2)+" km";
+  el("driveTicks").textContent=String(drivePlan.ticks.length);
+  el("drivePayload").textContent=JSON.stringify(gpsPayload(driveImageId()||"IMAGE",origin),null,2);
+  drawDrive(drivePlan, origin);
+  setDrivePhase("idle");
+  return drivePlan;
+}
+function sleep(ms){return new Promise(r=>{const t0=Date.now(); const id=setInterval(()=>{ if(!driveAbort.go||Date.now()-t0>=ms){clearInterval(id); r()}},80)})}
+async function pushGps(pt){
+  const id=driveImageId();
+  if(!id) throw new Error("Pick an image_id");
+  const body=gpsPayload(id,pt);
+  el("drivePayload").textContent=JSON.stringify(body,null,2);
+  if(!el("driveArm").checked){ el("driveAck").textContent="simulated"; return }
+  const key=el("driveKey").value.trim();
+  if(!key) throw new Error("Paste DuoPlus API key or uncheck Arm");
+  localStorage.setItem("airgrid.duoPlusKey", key);
+  const res=await fetch("https://openapi.duoplus.net/api/v1/cloudPhone/update",{
+    method:"POST",
+    headers:{"Content-Type":"application/json","DuoPlus-API-Key":key,Lang:"en"},
+    body:JSON.stringify(body)
+  });
+  let json=null; try{json=await res.json()}catch{throw new Error("DuoPlus non-JSON (often CORS on this static host)")}
+  const ok=json.code===200 && Array.isArray(json.data?.success) && json.data.success.includes(id) && !(json.data.fail||[]).includes(id);
+  if(!ok) throw new Error(json.message||"DuoPlus rejected GPS");
+  el("driveAck").textContent="accepted";
+}
+async function startDrive(){
+  const trip=drivePlan||await planDrive();
+  if(!trip) return;
+  driveAbort.go=true;
+  el("driveStart").hidden=true; el("driveCancel").hidden=false;
+  setDrivePhase("origin_set");
+  if(driveCar) driveCar.setLatLng([trip.origin.lat,trip.origin.lng]);
+  await pushGps(trip.origin);
+  await sleep(2500);
+  if(!driveAbort.go) return;
+  setDrivePhase("moving");
+  for(let i=1;i<trip.ticks.length;i++){
+    const step=trip.ticks[i];
+    await sleep(step.waitMs);
+    if(!driveAbort.go) return;
+    if(driveCar) driveCar.setLatLng([step.point.lat,step.point.lng]);
+    el("driveTicks").textContent=`${i}/${trip.ticks.length-1}`;
+    await pushGps(step.point);
+  }
+  setDrivePhase("arrived");
+  el("driveStart").hidden=false; el("driveCancel").hidden=true;
+}
+
 tickClock(); setInterval(tickClock,1000);
 (async function boot(){
   await loadScene();
