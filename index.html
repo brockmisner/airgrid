@@ -117,7 +117,7 @@
   </style>
 </head>
 <body>
-<div class="app" data-build="southbeach-357-drive">
+<div class="app" data-build="southbeach-357-drive2">
   <header>
     <div class="brand">
       <div class="mark" aria-hidden="true">
@@ -220,7 +220,12 @@
       <div class="drive-panel" id="drivePanel">
         <div>
           <strong>Drive</strong>
-          <p>GPS-only DuoPlus ticks along a road line. No Wi-Fi, SIM, cell, or Bluetooth on the ticker. Default: 9th → 11th, Miami Beach.</p>
+        <p>Click the map: first origin, then destination. GPS-only ticks. No Wi-Fi/SIM/BT on the ticker.</p>
+        <p id="drivePickHint" style="color:var(--bt);font-family:var(--font-mono);font-size:11px;margin-top:6px">Next click sets origin</p>
+        <div class="row" id="drivePresets">
+          <button class="btn" type="button" data-o="25.77936,-80.13670" data-d="25.78210,-80.13658">9th → 11th</button>
+          <button class="btn" type="button" data-o="25.78210,-80.13658" data-d="25.788551,-80.128459">11th → Flamingo</button>
+        </div>
         </div>
         <div class="field"><label for="driveImage">Device image_id</label>
           <select id="driveImage">
@@ -298,7 +303,7 @@ const layersOn={wifi:true,bluetooth:true,cell:true};
 let SCENE=window.AIRGRID_SCENE||null;
 let networks=[], selected=null, markers=[], cov=[], map, originMarker, scanCircle;
 let heatOn=true, radarOn=true, covOn=true;
-let driveLine=null, driveCar=null, driveMarks=[], driveAbort={go:false}, drivePlan=null;
+let driveLine=null, driveCar=null, driveMarks=[], driveAbort={go:false}, drivePlan=null, drivePick="origin";
 const el=id=>document.getElementById(id);
 const ESCMAP={"&":"&"+"amp;","<":"&"+"lt;",">":"&"+"gt;",'"':"&"+"quot;","'":"&#39;"};
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>ESCMAP[c]);
@@ -509,7 +514,16 @@ map=L.map("map",{preferCanvas:true, zoomControl:true}).setView([MIAMI.lat,MIAMI.
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19, attribution:"© OpenStreetMap · WiGLE"}).addTo(map);
 originMarker=L.circleMarker([MIAMI.lat,MIAMI.lng],{radius:6,color:"#fff",weight:2,fillColor:"#c5ccd4",fillOpacity:1}).addTo(map);
 scanCircle=L.circle([MIAMI.lat,MIAMI.lng],{radius:1500,color:"#c5ccd4",weight:1,fillOpacity:.04}).addTo(map);
-map.on("click",e=>setOrigin(e.latlng.lat,e.latlng.lng,false));
+map.on("click",e=>{
+  if(document.querySelector(".app").classList.contains("mode-drive")){
+    const text=`${e.latlng.lat.toFixed(6)}, ${e.latlng.lng.toFixed(6)}`;
+    if(drivePick==="origin"){ el("driveOrigin").value=text; drivePick="dest" }
+    else { el("driveDest").value=text; drivePick="origin" }
+    el("drivePickHint").textContent="Next click sets "+drivePick;
+    return;
+  }
+  setOrigin(e.latlng.lat,e.latlng.lng,false);
+});
 map.on("moveend zoomend",()=>drawHeat(visible()));
 document.querySelectorAll("[data-layer]").forEach(btn=>btn.addEventListener("click",()=>{const k=btn.dataset.layer; layersOn[k]=!layersOn[k]; btn.classList.toggle("on",layersOn[k]); btn.classList.toggle("off",!layersOn[k]); render()}));
 el("filter").addEventListener("input",render);
@@ -538,7 +552,13 @@ el("dismissBrief").addEventListener("click",()=>{el("brief").style.opacity="0"; 
 el("modeSurvey").addEventListener("click",()=>setMode("survey"));
 el("modeDrive").addEventListener("click",()=>setMode("drive"));
 el("driveImage").addEventListener("change",()=>{el("driveCustomWrap").hidden=el("driveImage").value!=="custom"});
-el("drivePlan").addEventListener("click",()=>planDrive().catch(e=>setDriveErr(e.message)));
+el("drivePresets").addEventListener("click",e=>{
+  const b=e.target.closest("[data-o]"); if(!b) return;
+  el("driveOrigin").value=b.dataset.o.replace(","," , ");
+  el("driveDest").value=b.dataset.d.replace(","," , ");
+  drivePick="origin";
+  el("drivePickHint").textContent="Next click sets origin";
+});
 el("driveStart").addEventListener("click",()=>startDrive().catch(e=>{setDriveErr(e.message); el("driveStart").hidden=false; el("driveCancel").hidden=true}));
 el("driveCancel").addEventListener("click",()=>{driveAbort.go=false; setDrivePhase("cancelled"); el("driveStart").hidden=false; el("driveCancel").hidden=true});
 const savedDuo=localStorage.getItem("airgrid.duoPlusKey")||"";
@@ -663,6 +683,7 @@ async function startDrive(){
     await sleep(step.waitMs);
     if(!driveAbort.go) return;
     if(driveCar) driveCar.setLatLng([step.point.lat,step.point.lng]);
+    map.panTo([step.point.lat,step.point.lng]);
     el("driveTicks").textContent=`${i}/${trip.ticks.length-1}`;
     await pushGps(step.point);
   }
